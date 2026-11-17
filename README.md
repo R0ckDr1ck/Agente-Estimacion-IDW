@@ -1,5 +1,8 @@
 # Agente de Estimación IDW · v4
 
+[![Abrir en Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://agente-estimacion-idw.streamlit.app/)
+**App en línea:** <https://agente-estimacion-idw.streamlit.app/> (ver «Publicar la interfaz en Streamlit Community Cloud» más abajo para saber qué puede hacer en la nube).
+
 Agente que entiende una solicitud en lenguaje natural, decide qué herramientas del flujo de estimación IDW ejecutar y en qué
 orden, **verifica los prerrequisitos antes de correr nada**, te dice qué falta (y te da el archivo para llenarlo), pide
 confirmación para lo destructivo, guarda el estado para **reanudar** y al final **te muestra el reporte con los resultados**.
