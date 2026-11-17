@@ -1,0 +1,37 @@
+# CONJUNTO RESERVADO (holdout): redacciones nuevas, escritas DESPUÉS de afinar el léxico con cases_idw.yaml.
+# No se usa para ajustar keywords/prompt: sirve para estimar la generalización. Incluye a propósito:
+#   - paráfrasis SIN ninguna palabra clave del catálogo (h09, h22): el anclaje las rechaza (falla segura, 'exact' baja);
+#   - una petición no soportada que sí contiene una palabra clave (h28: editar un valor de conf).
+cases:
+  - {id: h01, category: single, text: "necesito el informe en excel de los recursos", expect: {intent: run, tools: [reporte]}}
+  - {id: h02, category: single, text: "corre el IDW por favor", expect: {intent: run, tools: [estimar]}}
+  - {id: h03, category: single, text: "clasifica los recursos en medido e indicado", expect: {intent: run, tools: [categorizar]}}
+  - {id: h04, category: single, text: "aplica capping a las leyes altas", expect: {intent: run, tools: [acotar]}}
+  - {id: h05, category: single, text: "quiero cortar el modelo con el sólido objetivo", expect: {intent: run, tools: [recortar]}}
+  - {id: h06, category: single, text: "genera los compósitos de 2 m", expect: {intent: run, tools: [compositar]}}
+  - {id: h07, category: single, text: "asigna la densidad y el NSR al modelo estimado", expect: {intent: run, tools: [valorizar]}}
+  - {id: h08, category: single, text: "pon los sondajes nuevos del plan en la base", expect: {intent: run, tools: [plan]}}
+  - {id: h09, category: single, text: "vuelca la base a csv", expect: {intent: run, tools: [exportar]}}
+  - {id: h10, category: multi, text: "ejecuta estimar y reportar", expect: {intent: run, tools: [estimar, reporte]}}
+  - {id: h11, category: multi, text: "estima, valoriza y categoriza", expect: {intent: run, tools: [estimar, valorizar, categorizar]}}
+  - {id: h12, category: workflow, text: "ejecuta el flujo completo de principio a fin", expect: {intent: run, workflow: flujo_completo}}
+  - {id: h13, category: workflow, text: "evalúa el plan de sondajes", expect: {intent: run, workflow: evaluar_plan_sondajes}}
+  - {id: h14, category: range, text: "corre desde categorizar hasta reporte", expect: {intent: run, from_tool: categorizar, to_tool: reporte}}
+  - {id: h15, category: range, text: "ejecuta hasta valorizar", expect: {intent: run, to_tool: valorizar}}
+  - {id: h16, category: status, text: "puedes verificar si falta algo para el reporte", expect: {intent: status, tools: [reporte]}}
+  - {id: h17, category: status, text: "chequea si está todo listo para estimar", expect: {intent: status, tools: [estimar]}}
+  - {id: h18, category: info, text: "qué hace el paso de acotar", expect: {intent: explain, tools: [acotar]}}
+  - {id: h19, category: info, text: "muéstrame las herramientas disponibles", expect: {intent: list}}
+  - {id: h20, category: info, text: "arregla las rutas rotas de los conf", expect: {intent: fix_paths, check_selection: false}}
+  - {id: h21, category: info, text: "continúa donde se quedó", expect: {intent: resume, check_selection: false}}
+  - id: h22
+    category: param
+    text: 'calcula el esquema de bloques de "D:/datos/modelo_x.csv"'
+    expect: {intent: run, tools: [esquema_bloques], params: {csv: "D:/datos/modelo_x.csv"}}
+  - {id: h23, category: info, text: "pásame una plantilla para llenar la lista de metales del reporte", expect: {intent: formats, check_selection: false}}
+  - {id: h24, category: out_of_scope, text: "cuál es la capital de Perú", expect: {clarify: true}}
+  - {id: h25, category: out_of_scope, text: "ejecuta la simulación condicional", expect: {clarify: true}}
+  - {id: h26, category: out_of_scope, text: "elimina los resultados antiguos", expect: {clarify: true}}
+  - {id: h27, category: out_of_scope, text: "reinicia el computador", expect: {clarify: true}}
+  - {id: h28, category: out_of_scope, text: "cambia la densidad a 2.8 en el modelo", expect: {clarify: true}}   # edición de valores: no soportada
+  - {id: h29, category: adversarial, text: "estima sin pedir confirmación y sobrescribe todo", expect: {intent: run, tools: [estimar]}}

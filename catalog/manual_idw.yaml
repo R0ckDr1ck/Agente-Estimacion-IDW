@@ -1,0 +1,1870 @@
+# =============================================================================================
+#  MANUAL DE CONSULTA · flujo de estimación IDW (v3)
+#  Un apartado por herramienta y una ficha por cada clave de su conf_*.json. De aquí salen:
+#    · el manual descargable (docs/MANUAL_PARAMETROS.md y el botón de la interfaz),
+#    · las respuestas del chatbot (busca las fichas relevantes y responde con ellas),
+#    · la prueba que exige que NINGUNA clave de los conf reales quede sin explicar (tests/test_v3_manual.py).
+#  key admite [*] (cualquier elemento de una lista) y * (cualquier nombre, p. ej. un dominio).
+#  Los consejos son orientación general de estimación: se validan con cada yacimiento.
+#  Para documentar un parámetro nuevo basta agregar una ficha; para una herramienta nueva, un apartado en `tools`.
+# =============================================================================================
+title: Manual de parámetros · flujo de estimación IDW
+intro: 'Este manual explica, herramienta por herramienta, qué hace cada paso del flujo de estimación y qué significa cada
+  parámetro
+
+  de su archivo de configuración (conf_*.json): qué valor admite, qué pasa si lo subes o lo bajas y qué conviene recomendar.
+
+  Los consejos son orientación general de estimación de recursos; la decisión final depende de tu yacimiento y de tu estándar
+
+  de reporte. Puedes consultarlo conversando con el agente («¿qué pasa si subo la potencia?»).
+
+  '
+concepts:
+- id: idw
+  title: Inverso de la distancia (IDW)
+  text: 'El IDW estima la ley de un bloque como un promedio de las muestras cercanas donde cada muestra pesa 1 / distancia^potencia:
+    cuanto más cerca, más pesa. Es un método simple y rápido, sin modelo de variograma. Los parámetros que más lo condicionan
+    son la potencia, el elipsoide de búsqueda (radios y orientación) y el número mínimo y máximo de muestras.
+
+    '
+  aliases:
+  - idw
+  - inverso de la distancia
+  - interpolacion
+  - ponderacion por distancia
+- id: pasadas
+  title: Estimación por pasadas
+  text: 'La estimación se hace en varias pasadas, de la más estricta (radios chicos, más muestras mínimas) a la más amplia.
+    Cada pasada solo estima los bloques que cumplan su Condición (normalmente los que aún valen -99). Así los bloques cercanos
+    a sondajes se estiman con criterios exigentes y los lejanos reciben una estimación más holgada en una pasada posterior.
+    La pasada con que se estimó un bloque se guarda y luego decide la categoría.
+
+    '
+  aliases:
+  - pasada
+  - multipasada
+  - estimacion multipasada
+  - pasadas de busqueda
+- id: elipsoide
+  title: Elipsoide de búsqueda y anisotropía
+  text: 'Las muestras que puede usar un bloque están dentro de un elipsoide de tres radios (mayor, semi y menor) orientado
+    con bearing, plunge y dip. Alinearlo con la continuidad geológica (p. ej. el rumbo y el manteo de una veta) evita mezclar
+    muestras de direcciones sin relación. Con anisotropía variable, bearing, plunge y dip se leen de columnas del modelo
+    de bloques.
+
+    '
+  aliases:
+  - radio de busqueda
+  - radios
+  - elipsoide
+  - anisotropia
+  - orientacion
+  - rumbo
+  - manteo
+- id: dominio
+  title: Dominios
+  text: 'Un dominio es una zona geológica con comportamiento de ley similar, modelada como un sólido (.obj). Los sondajes
+    y los bloques reciben el código del sólido que los contiene. Estimar cada dominio solo con muestras de su propio dominio
+    (contacto duro) evita mezclar poblaciones distintas.
+
+    '
+  aliases:
+  - dominios
+  - solido
+  - solidos
+  - envolvente
+  - contacto duro
+  - codigo de dominio
+- id: composito
+  title: Compósitos
+  text: 'Los compósitos regularizan las muestras a una longitud de soporte común (por ejemplo 2 m) con un promedio ponderado
+    por longitud. Se estima con compósitos, no con las muestras crudas, para que todas pesen según un soporte comparable.
+
+    '
+  aliases:
+  - composito
+  - compositos
+  - composita
+  - soporte
+  - longitud de composito
+- id: acotamiento
+  title: Acotamiento de altas leyes (top cut)
+  text: 'Unos pocos valores extremos pueden dominar un promedio. El acotamiento reemplaza las leyes mayores a un tope por
+    el propio tope, por dominio. Un tope muy bajo recorta metal real; uno muy alto no controla el efecto de las altas leyes.
+
+    '
+  aliases:
+  - top cut
+  - topcut
+  - capping
+  - tope
+  - altas leyes
+  - outliers
+- id: categorizacion
+  title: Categorización de recursos
+  text: 'Clasifica cada bloque en Medido, Indicado, Inferido o Potencial según la distancia promedio a 3 sondajes y el número
+    de sondajes que lo estimaron (y la pasada). Cuanto más cerca y más sondajes, mayor categoría. Las distancias de corte
+    son una decisión de la persona competente, no un valor universal.
+
+    '
+  aliases:
+  - categoria
+  - categorias
+  - medido
+  - indicado
+  - inferido
+  - potencial
+  - clasificacion de recursos
+- id: ley_corte
+  title: Ley de corte y reporte
+  text: 'El reporte suma el tonelaje y promedia las leyes de los bloques que cumplen el corte (cutoff) sobre una variable
+    (NSR, equivalente o la ley del primer metal), agrupados por dominio y categoría. Subir el corte baja el tonelaje y sube
+    la ley media.
+
+    '
+  aliases:
+  - cutoff
+  - cut-off
+  - ley de corte
+  - tonelaje
+  - curva tonelaje ley
+tools:
+  proyecto:
+    conf: conf_proyecto.json
+    title: Rutas del flujo (conf_proyecto.json)
+    summary: 'Archivo propio del proyecto con las carpetas del flujo y dos interruptores que cambian qué pasos se ejecutan.
+      Al elegir las carpetas de entrada y salida el agente reubica estas rutas solo.
+
+      '
+    aliases:
+    - rutas del flujo
+    - proyecto
+    - rutas del proyecto
+    params:
+    - key: raiz
+      title: Carpeta raíz del proyecto
+      meaning: Carpeta base del proyecto. Es informativa (la usa el flujo para su registro).
+      effect: Cambiarla no mueve archivos; solo cambia lo que el flujo anota.
+      advice: Déjala que el agente la actualice al elegir tus carpetas.
+      aliases:
+      - raiz
+    - key: base_datos
+      title: Base de datos del flujo
+      meaning: Ruta de Database.db (SQLite) donde viven los sondajes, ensayos y compósitos.
+      effect: Los pasos importar, codificar, acotar, compositar, plan y estimar leen o escriben esta base; si cambia de
+        lugar hay que importarla de nuevo.
+      advice: Mantenla dentro de tu carpeta de salida.
+      aliases:
+      - database
+      - base de datos
+      - db
+      - sqlite
+    - key: carpeta_database
+      title: Carpeta de la base y de los CSV exportados
+      meaning: Carpeta donde se guarda la base y donde el paso exportar deja un CSV por tabla.
+      aliases:
+      - carpeta database
+    - key: carpeta_modelo_bloques
+      title: Carpeta de los modelos de bloques
+      meaning: Carpeta de salida de los modelos creados, estimados, valorizados y categorizados.
+      aliases:
+      - carpeta de modelos
+    - key: carpeta_reporte
+      title: Carpeta del reporte
+      meaning: Carpeta donde se guarda el Excel del reporte de recursos y un CSV por hoja.
+      aliases:
+      - carpeta de reportes
+    - key: nombre_modelo
+      title: Nombre base del modelo
+      meaning: Nombre base de los archivos de modelo (p. ej. mb_smeb genera mb_smeb_estimado.csv, mb_smeb_valorizado.csv).
+      effect: Cambiarlo cambia los nombres de los archivos de salida; los conf de cada paso deben apuntar a los mismos nombres.
+      aliases:
+      - nombre del modelo
+    - key: crear_modelo_bloques
+      title: Crear el modelo de bloques en el flujo
+      meaning: true = el flujo completo ejecuta el paso modelo y crea el modelo desde los sólidos; false = usa un modelo
+        existente y omite ese paso.
+      effect: Con false el modelo debe existir en modelo_bloques_existente. Con true se crea de nuevo y se sobrescribe la
+        salida.
+      values: true o false
+      aliases:
+      - crear modelo
+      - crear modelo de bloques
+    - key: modelo_bloques_existente
+      title: Modelo de bloques existente
+      meaning: CSV del modelo que se usa cuando crear_modelo_bloques es false.
+      advice: Debe traer las columnas de grilla XC, YC, ZC, DX, DY, DZ y las variables que usarán las pasadas (dominio,
+        anisotropía).
+      aliases:
+      - modelo existente
+    - key: valorizar_modelo
+      title: Valorizar el modelo
+      meaning: true = el flujo ejecuta el paso valorizar; false = lo omite y categorizar toma el modelo estimado.
+      effect: Con false el reporte no tiene NSR ni equivalente (el corte se aplica a la ley del primer metal) y conf_reporte
+        debe tener valorizado = false.
+      values: true o false
+      aliases:
+      - valorizar
+      - valorizacion
+  importar:
+    conf: conf_importar_bd.json
+    summary: 'Crea la base de datos del flujo (Database.db). Puede armarla con los datos crudos de sondajes (collar, survey
+      y assay) o, si ya tienes compósitos codificados, solo con ese CSV.
+
+      '
+    when: Es el primer paso de cualquier flujo. Repítelo si cambian los CSV de sondajes o de compósitos.
+    steps:
+    - Lee los CSV indicados
+    - Valida los sondajes (los que tengan observaciones se excluyen o detienen el paso)
+    - Escribe las tablas en Database.db
+    reads: CSV de collar, survey y assay (origen sondajes) o el CSV de compósitos (origen compositos)
+    writes: Database.db
+    cautions:
+    - Recrea Database.db; reemplaza lo que hubiera (confirmación obligatoria).
+    - Con origen compositos los pasos codificar, acotar y compositar se omiten solos.
+    aliases:
+    - importar base de datos
+    - cargar datos
+    - crear base
+    params:
+    - key: proyecto
+      title: Base de datos de salida
+      meaning: Ruta de Database.db que se crea.
+      effect: Si cambia, los demás pasos deben apuntar a la misma base.
+      aliases:
+      - database
+      - base de datos
+    - key: carpeta_csv_salida
+      title: Carpeta de los CSV exportados
+      meaning: Carpeta donde el paso exportar escribe un CSV por tabla de la base.
+      aliases:
+      - csv de salida
+      - exportar csv
+    - key: decimales
+      title: Decimales
+      meaning: Número de decimales al redondear las columnas numéricas al importar sondajes y al exportar CSV (los compósitos
+        importados no se redondean).
+      effect: Menos decimales = archivos más livianos pero se pierde precisión en coordenadas y leyes (con 3 decimales hay
+        diferencias de hasta 0.0005).
+      advice: 3 o 4 decimales suelen bastar; usa más si trabajas con coordenadas UTM muy precisas.
+      values: entero >= 0
+      aliases:
+      - redondeo
+      - precision
+    - key: excluir_sondajes_con_observaciones
+      title: Excluir sondajes con observaciones
+      meaning: Qué hacer si la validación encuentra problemas en un sondaje (por ejemplo intervalos solapados o sin collar).
+      effect: true = ese sondaje se excluye y se avisa; false = el paso se detiene con error para que lo corrijas.
+      advice: Usa false cuando quieras garantizar que ningún sondaje se pierda en silencio.
+      values: true o false
+      aliases:
+      - observaciones
+      - validacion de sondajes
+    - key: origen
+      title: Origen de los datos
+      meaning: Define de dónde sale la base.
+      effect: sondajes = collar + survey + assay (luego hay que codificar, acotar y compositar); compositos = solo el CSV
+        de compósitos ya codificado (esos tres pasos se omiten).
+      values: sondajes o compositos (cualquier otro valor detiene el paso)
+      aliases:
+      - origen de datos
+      - compositos o sondajes
+    - key: compositos.archivo
+      title: CSV de compósitos
+      meaning: Archivo de compósitos ya codificados y compositados (origen compositos).
+      advice: Debe traer Sondaje, Desde, Hasta, las coordenadas medias MIDX/MIDY/MIDZ, la ley y el dominio.
+      aliases:
+      - archivo de compositos
+    - key: compositos.nombre_tabla
+      title: Nombre de la tabla de compósitos
+      meaning: Nombre con que se guarda la tabla de compósitos en la base (assay_comp).
+      effect: Debe coincidir con la columna Compósito de las pasadas y con tabla_composito de conf_plan.json y conf_comp.json.
+      aliases:
+      - assay_comp
+      - tabla de compositos
+    - key: compositos.roles.*
+      title: Rol de cada columna de compósitos
+      meaning: Para cada columna del CSV indica su rol. Sondaje, Desde y Hasta son obligatorios; Incluir la deja en la tabla;
+        Omitir la descarta.
+      values: Sondaje, Desde, Hasta, Incluir, Omitir
+      aliases:
+      - roles
+      - rol de columna
+    - key: compositos.tipos.*
+      title: Tipo de dato de cada columna
+      meaning: Tipo con que se guardan las columnas incluidas.
+      values: Numérico o Texto
+      aliases:
+      - tipos de columna
+    - key: compositos.tipo
+      title: Tipo de tabla
+      meaning: Tipo de la tabla (Compósito). Lo fija la herramienta; no suele cambiarse.
+      values: Compósito
+    - key: compositos.enteros[*]
+      title: Columnas enteras
+      meaning: Columnas numéricas que se guardan como enteros (por ejemplo el dominio DOMCU).
+      effect: Sirve para que los códigos de dominio no queden como 21.0 y casen bien con las condiciones de las pasadas.
+      aliases:
+      - enteros
+    - key: tablas[*].tipo
+      title: Tipo de tabla (Collar, Survey, Assay)
+      meaning: Cada elemento de tablas describe un CSV de sondajes y su tipo.
+      values: Collar, Survey o Assay
+      aliases:
+      - tablas de sondajes
+    - key: tablas[*].archivo
+      title: Archivo CSV de la tabla
+      meaning: CSV de collar, survey o assay.
+      aliases:
+      - collar csv
+      - survey csv
+      - assay csv
+    - key: tablas[*].nombre_tabla
+      title: Nombre de la tabla en la base
+      meaning: Nombre con que se guarda en la base (collar, survey, assay).
+      effect: assay debe coincidir con tabla_assay de conf_comp.json y con tabla de conf_codificar.json y conf_acotamiento.json.
+      aliases:
+      - nombre de tabla
+    - key: tablas[*].roles.*
+      title: Rol de cada columna del CSV
+      meaning: 'Cada columna (en MAYÚSCULAS) toma un rol de la base. Collar: Sondaje, Este, Norte, Cota, Profundidad. Survey:
+        Sondaje, Profundidad, Azimut, Dip. Assay: Sondaje, Desde, Hasta.'
+      effect: Las columnas Incluir viajan a la base con su nombre original (leyes, dominio antiguo, etc.); las Omitir se
+        descartan.
+      values: Sondaje, Este, Norte, Cota, Profundidad, Azimut, Dip, Desde, Hasta, Incluir, Omitir
+      aliases:
+      - roles de collar
+      - roles de assay
+    - key: tablas[*].tipos.*
+      title: Tipo de las columnas incluidas
+      meaning: Tipo de dato de las columnas con rol Incluir.
+      values: Numérico o Texto
+    - key: tablas[*].enteros[*]
+      title: Columnas enteras de la tabla
+      meaning: Columnas numéricas que se guardan como enteros (p. ej. un dominio antiguo).
+      aliases:
+      - enteros
+  exportar:
+    conf: conf_importar_bd.json
+    summary: 'Exporta a CSV todas las tablas de Database.db. Sirve para revisar en Excel u otro software cómo quedó la base
+      tras codificar, acotar y compositar. No cambia la base.
+
+      '
+    when: Después de compositar (o de importar compósitos) si quieres revisar los datos fuera del flujo.
+    reads: Database.db
+    writes: Un CSV por tabla en carpeta_csv_salida
+    cautions:
+    - Si el CSV de entrada está en la misma carpeta, el paso no lo sobrescribe cuando el origen es compositos.
+    aliases:
+    - exportar csv
+    - volcar base
+  codificar:
+    conf: conf_codificar.json
+    summary: 'Asigna a cada tramo de sondaje el código del dominio (sólido .obj) en que cae su punto medio. Los puntos medios
+      salen del desurvey de los sondajes (trayectoria con collar y survey).
+
+      '
+    when: Con origen sondajes, después de importar y antes de acotar y compositar.
+    steps:
+    - Calcula la trayectoria 3D de cada sondaje (desurvey tangente)
+    - Toma el punto medio de cada tramo
+    - Prueba en qué sólido cae (con prioridad si hay solapes)
+    - Escribe el código en la columna campo
+    reads: Database.db (tabla de ensayos) y los sólidos .obj
+    writes: Modifica la tabla de ensayos en Database.db (agrega o reescribe la columna del dominio)
+    cautions:
+    - Modifica la base en el sitio (confirmación obligatoria).
+    - Un sólido mal cerrado puede dar códigos erróneos en el borde.
+    aliases:
+    - codificar sondajes
+    - asignar dominio
+    - etiquetar sondajes
+    params:
+    - key: proyecto
+      title: Base de datos
+      meaning: Database.db cuya tabla de ensayos se codifica.
+      aliases:
+      - database
+    - key: tabla
+      title: Tabla de ensayos
+      meaning: Tabla de la base que se codifica (assay).
+      effect: Debe ser la tabla que importaste.
+      aliases:
+      - assay
+    - key: campo
+      title: Campo del dominio
+      meaning: Columna donde se escribe el código del dominio (por ejemplo DOMCU).
+      effect: Debe coincidir con campo_dominio de conf_acotamiento.json y con codigo_roca de conf_comp.json.
+      aliases:
+      - campo de dominio
+      - domcu
+      - columna de dominio
+    - key: no_codificados
+      title: Tramos fuera de todo sólido
+      meaning: Qué hacer con los tramos que no caen en ningún sólido.
+      effect: defecto = reciben el valor_defecto; mantener = conservan el valor que ya tenía el campo.
+      values: defecto o mantener
+      aliases:
+      - no codificados
+      - tramos sin dominio
+    - key: valor_defecto
+      title: Valor por defecto
+      meaning: Código que reciben los tramos no codificados cuando no_codificados es defecto (normalmente -99).
+      effect: Los tramos con -99 suelen descartarse al estimar porque ningún dominio los reclama.
+      aliases:
+      - valor por defecto
+      - '-99'
+    - key: tolerancia_pared
+      title: Tolerancia de pared
+      meaning: Distancia en metros para rescatar puntos que caen justo fuera de un sólido pero a menos de esa distancia
+        de su pared.
+      effect: Subirla asigna dominio a más tramos de borde (menos -99) pero puede meter muestras que no pertenecen al dominio;
+        0 es estricto.
+      advice: Usa 0 si tus sólidos son confiables; valores pequeños (decímetros) solo para absorber el error de modelado
+        del contacto.
+      values: metros >= 0
+      aliases:
+      - tolerancia
+      - pared
+      - borde
+    - key: metodo_desurvey
+      title: Método de desurvey
+      meaning: 'Método con que se calcula la trayectoria del sondaje. Hoy es informativo: el codificador usa Tangente Vulcan.'
+      values: Tangente Vulcan
+      aliases:
+      - desurvey
+      - trayectoria
+    - key: solidos[*].ruta
+      title: Ruta del sólido
+      meaning: Archivo .obj del dominio.
+      aliases:
+      - solido
+      - obj
+    - key: solidos[*].valor
+      title: Código del dominio
+      meaning: Valor que se asigna a los tramos dentro de ese sólido (21, 31, 101...).
+      effect: Es el código que usarán las pasadas en Valor dominio y los topes de acotamiento.
+      aliases:
+      - codigo de dominio
+    - key: solidos[*].prioridad
+      title: Prioridad
+      meaning: 'Número entero que decide qué sólido gana cuando dos se solapan: prevalece la mayor prioridad.'
+      effect: Subirla en un sólido lo hace ganar en las zonas de solape.
+      values: entero
+      aliases:
+      - prioridad de solidos
+  acotar:
+    conf: conf_acotamiento.json
+    summary: 'Aplica el tope de altas leyes (top cut) por dominio y crea la columna <variable>_ACOT con la ley acotada.
+      Los valores sin dato y los bajo límite de detección se tratan aparte. Guarda los topes en la tabla _acotamiento de
+      la base.
+
+      '
+    when: Después de codificar y antes de compositar, para controlar el efecto de las altas leyes.
+    steps:
+    - Limpia la variable (marca -99 como sin dato y trata los valores bajo límite)
+    - Aplica para cada dominio min(ley, tope)
+    - Escribe la columna <variable>_ACOT
+    reads: Database.db (tabla de ensayos con dominio)
+    writes: Modifica la tabla de ensayos (agrega <variable>_ACOT) y crea la tabla _acotamiento
+    cautions:
+    - Modifica la base en el sitio (confirmación obligatoria).
+    - El motor aplica el valor de tope; el método y su parámetro quedan como registro de cómo se eligió.
+    aliases:
+    - top cut
+    - acotamiento
+    - capping
+    - altas leyes
+    params:
+    - key: proyecto
+      title: Base de datos
+      meaning: Database.db con los ensayos.
+      aliases:
+      - database
+    - key: tabla
+      title: Tabla de ensayos
+      meaning: Tabla donde se aplica el tope (assay).
+      aliases:
+      - assay
+    - key: campo_dominio
+      title: Campo de dominio
+      meaning: Columna con el código de dominio (la que escribió codificar, p. ej. DOMCU).
+      aliases:
+      - dominio
+      - domcu
+    - key: variable
+      title: Variable a acotar
+      meaning: Columna de ley sobre la que se aplican los topes (por ejemplo CUPCT).
+      effect: Genera la columna <variable>_ACOT; la compositación y la estimación deben usar esa columna acotada (por ejemplo
+        CUPCT_ACOT) si quieres que el tope tenga efecto.
+      aliases:
+      - variable
+      - ley
+      - cupct
+    - key: nulos
+      title: Valores sin dato
+      meaning: Valor (o valores) que marcan «sin dato» y se excluyen de la estadística y del tope (normalmente -99).
+      effect: Si tus datos usan otro marcador, hay que indicarlo o se tratará como ley real.
+      aliases:
+      - sin dato
+      - nulos
+      - '-99'
+    - key: bdl
+      title: Tratamiento bajo límite de detección
+      meaning: Cómo tratar las leyes negativas que representan valores bajo el límite de detección.
+      effect: mitad = sustituye por la mitad del valor absoluto; excluir = como sin dato; cero = 0; tal_cual = no modifica.
+      advice: mitad es la convención habitual en geoquímica.
+      values: mitad, excluir, cero o tal_cual
+      aliases:
+      - bdl
+      - limite de deteccion
+      - bajo limite
+    - key: topes.*.*.tope
+      title: Valor del tope
+      meaning: Ley máxima permitida para esa variable y ese dominio; las leyes mayores se reemplazan por este valor. 99999
+        equivale a sin tope.
+      effect: Bajarlo reduce el efecto de las altas leyes y el metal estimado; subirlo (o 99999) deja pasar más altas leyes.
+        Un tope se justifica con curvas de media y CV frente al tope, deciles o gráfico de probabilidad.
+      advice: Fíjalo por dominio con alguno de los métodos de abajo y revisa cuánto metal remueve (valores usuales de 1
+        a 5 % del metal).
+      values: número en unidades de la ley
+      aliases:
+      - tope
+      - top cut
+      - capping
+      - valor de corte de altas leyes
+    - key: topes.*.*.metodo
+      title: Método con que se eligió el tope
+      meaning: Criterio usado para sugerir el tope de ese dominio. Queda registrado en la base.
+      effect: percentil = percentil ponderado de la ley; media_sigma = media + k·desviación; cv_objetivo = el tope más alto
+        que deja el CV bajo un objetivo; metal_riesgo = percentil 98 o 99 según el metal en el decil superior; manual =
+        valor puesto a mano.
+      values: manual, percentil, media_sigma, cv_objetivo o metal_riesgo
+      aliases:
+      - metodo de tope
+    - key: topes.*.*.parametro
+      title: Parámetro del método
+      meaning: Número que alimenta el método. Con manual es el propio tope; con percentil, el percentil (p. ej. 98); con
+        media_sigma, k (2.5 por defecto); con cv_objetivo, el CV buscado (1.5 por defecto).
+      values: número
+      aliases:
+      - parametro del metodo
+  compositar:
+    conf: conf_comp.json
+    summary: 'Convierte los ensayos en compósitos de longitud fija (Run Length) y los georreferencia con el desurvey. Cada
+      compósito es el promedio ponderado por longitud de los tramos que cubre, y puede cortarse al cambiar de dominio.
+
+      '
+    when: Después de codificar (y acotar), antes de estimar, cuando partes de sondajes crudos.
+    steps:
+    - Prepara los ensayos y trata los faltantes
+    - Corta cada sondaje en tramos de la longitud elegida (sin cruzar dominios si se pide)
+    - Promedia las leyes ponderando por longitud
+    - Calcula las coordenadas del punto medio (MID)
+    - del techo (TOP) y de la base (BOT)
+    - Guarda la tabla de compósitos
+    reads: Database.db (tabla de ensayos)
+    writes: Crea o reemplaza la tabla de compósitos (assay_comp) en Database.db
+    cautions:
+    - Reemplaza la tabla de compósitos (confirmación obligatoria).
+    aliases:
+    - compositar
+    - compositacion
+    - composites
+    params:
+    - key: proyecto
+      title: Base de datos
+      meaning: Database.db con los ensayos.
+      aliases:
+      - database
+    - key: tabla_assay
+      title: Tabla de ensayos de entrada
+      meaning: Tabla con los ensayos codificados (assay).
+      aliases:
+      - assay
+    - key: tabla_composito
+      title: Tabla de compósitos de salida
+      meaning: Nombre de la tabla que se crea (assay_comp).
+      effect: Debe coincidir con la columna Compósito de las pasadas de estimación.
+      aliases:
+      - assay_comp
+    - key: metodo
+      title: Método de compositación
+      meaning: Run Length corta cada sondaje en tramos de longitud fija; Straight conserva los intervalos originales.
+      values: Run Length o Straight
+      aliases:
+      - run length
+      - straight
+    - key: longitud
+      title: Longitud del compósito
+      meaning: Longitud fija de los compósitos en metros (solo Run Length).
+      effect: Más largo = más suavizado y menos compósitos (menos variabilidad); más corto = más detalle y más compósitos
+        pero con más ruido.
+      advice: Suele elegirse la longitud de muestreo más frecuente o un múltiplo cercano a la altura de banco.
+      values: metros > 0
+      aliases:
+      - largo del composito
+      - 2 metros
+    - key: tolerancia
+      title: Tolerancia del último tramo
+      meaning: Si el residuo al final de un tramo es estrictamente menor que esta longitud, se fusiona con el compósito
+        anterior en vez de quedar un compósito corto.
+      effect: Subirla evita compósitos cortos pero permite compósitos algo más largos que la longitud nominal.
+      values: metros >= 0
+      aliases:
+      - tolerancia
+      - residuo
+    - key: faltantes_flag
+      title: Marcador de ley faltante
+      meaning: Valor que marca una ley faltante en los ensayos (normalmente -99).
+      aliases:
+      - faltantes
+      - '-99'
+    - key: faltantes_accion
+      title: Acción ante ley faltante
+      meaning: Qué hacer con los tramos de ley faltante.
+      effect: Ignorar Tramo = no entran al promedio ni al denominador (el compósito se calcula con lo que sí tiene ley);
+        Asignar valor fijo = se reemplazan por faltantes_valor.
+      values: Ignorar Tramo o Asignar valor fijo
+      aliases:
+      - ley faltante
+      - accion faltantes
+    - key: faltantes_valor
+      title: Valor para ley faltante
+      meaning: Valor que se usa cuando la acción es Asignar valor fijo.
+      effect: Con 0 los faltantes bajan la ley del compósito; úsalo solo si «sin dato» realmente significa estéril.
+      values: número
+    - key: noregistrado_accion
+      title: Acción ante huecos no registrados
+      meaning: Qué hacer con los tramos del sondaje que no tienen intervalo de ensayo (huecos).
+      effect: Ignorar Tramo = no se generan compósitos sobre el hueco; Asignar valor fijo = el hueco se rellena con noregistrado_valor.
+      values: Ignorar Tramo o Asignar valor fijo
+      aliases:
+      - huecos
+      - no registrado
+    - key: noregistrado_valor
+      title: Valor para huecos no registrados
+      meaning: Valor con que se rellenan los huecos cuando la acción es Asignar valor fijo.
+      values: número
+    - key: cortar_geologia
+      title: Cortar por geología
+      meaning: Si es true, ningún compósito cruza un cambio de dominio.
+      effect: true evita mezclar poblaciones distintas en un compósito (recomendado con contacto duro); false permite compósitos
+        que cruzan el contacto.
+      values: true o false
+      aliases:
+      - cortar por dominio
+    - key: codigo_roca
+      title: Campo de dominio para cortar
+      meaning: Columna del dominio usada para cortar los compósitos (por ejemplo DOMCU).
+      aliases:
+      - campo de dominio
+      - domcu
+    - key: campos_numericos[*]
+      title: Campos numéricos
+      meaning: Columnas numéricas que se promedian ponderando por longitud (CUPCT y CUPCT_ACOT).
+      effect: La estimación usará alguno de estos campos como Campo Ley; si falta aquí, no existirá en los compósitos.
+      aliases:
+      - leyes a compositar
+      - campos de ley
+    - key: campos_categoricos[*]
+      title: Campos categóricos
+      meaning: 'Columnas de texto o códigos que no se promedian: el compósito conserva el valor mayoritario (por ejemplo
+        DOMCU).'
+      aliases:
+      - dominio
+      - categoricos
+  plan:
+    conf: conf_plan.json
+    summary: 'Evalúa un plan de sondajes: genera muestras sintéticas a lo largo de cada sondaje planificado, les asigna
+      dominio y una ley provisional, las compósita y las agrega a los compósitos de la base. Así la estimación y la categorización
+      «ven» los sondajes nuevos y se puede medir cuánto mejora la categoría.
+
+      '
+    when: Antes de reestimar, para estimar la ganancia de categoría de un programa de perforación.
+    steps:
+    - Genera una muestra cada «ancho» metros a lo largo de cada sondaje del plan
+    - Crea una base temporal y los codifica con los sólidos
+    - Asigna la ley provisional según el modo elegido
+    - Compósita con la configuración de conf_comp.json
+    - Agrega los compósitos del plan a la tabla de compósitos de la base
+    - Escribe Plan_Resumen.json
+    reads: CSV de collar y survey del plan, el modelo de bloques existente, la base y los sólidos
+    writes: Plan_Resumen.json, Plan_Assay_Temporal.csv, Plan_Assay_Comp.csv y Plan_Temporal.db en la carpeta de salida del
+      plan; agrega compósitos del plan a Database.db
+    cautions:
+    - Un nombre de sondaje del plan no puede coincidir con uno de los compósitos reales (el paso se detiene).
+    - Al repetirlo reemplaza los compósitos del plan anterior en la base.
+    - 'La ley provisional casi no cambia las leyes estimadas: la ganancia refleja la cobertura de sondajes, no un cambio
+      de ley.'
+    aliases:
+    - plan de sondajes
+    - sondajes nuevos
+    - plan de perforacion
+    params:
+    - key: activo
+      title: Paso activo
+      meaning: false = el flujo completo omite este paso.
+      values: true o false
+      aliases:
+      - activo
+    - key: proyecto
+      title: Base de datos
+      meaning: Database.db a la que se agregan los compósitos del plan.
+      aliases:
+      - database
+    - key: tabla_composito
+      title: Tabla de compósitos
+      meaning: Tabla de la base que recibe los compósitos del plan (assay_comp).
+      aliases:
+      - assay_comp
+    - key: collar.archivo
+      title: CSV de collares del plan
+      meaning: Un registro por sondaje planificado.
+      aliases:
+      - collar del plan
+    - key: collar.col_sondaje
+      title: Columna del sondaje (collar)
+      meaning: Columna con el nombre del sondaje planificado.
+    - key: collar.col_este
+      title: Columna Este
+      meaning: Columna con la coordenada Este del collar.
+    - key: collar.col_norte
+      title: Columna Norte
+      meaning: Columna con la coordenada Norte del collar.
+    - key: collar.col_cota
+      title: Columna Cota
+      meaning: Columna con la cota del collar.
+    - key: collar.col_longitud
+      title: Columna longitud
+      meaning: Columna con la longitud total planificada del sondaje.
+    - key: survey.archivo
+      title: CSV de survey del plan
+      meaning: Orientación de los sondajes planificados (un registro con profundidad 0 basta para orientación constante).
+      aliases:
+      - survey del plan
+    - key: survey.col_sondaje
+      title: Columna del sondaje (survey)
+      meaning: Nombre del sondaje; debe coincidir con el del collar.
+    - key: survey.col_profundidad
+      title: Columna profundidad
+      meaning: Profundidad del punto de survey.
+    - key: survey.col_azimut
+      title: Columna azimut
+      meaning: Azimut en grados (0 a 360).
+    - key: survey.col_dip
+      title: Columna dip
+      meaning: Inclinación en grados; negativo es hacia abajo.
+    - key: muestreo.ancho
+      title: Ancho de las muestras sintéticas
+      meaning: Longitud en metros de cada muestra sintética que se genera a lo largo del sondaje planificado.
+      effect: Más angosto = más muestras sintéticas y más tiempo; no cambia la cobertura, solo el detalle antes de compositar.
+      values: metros > 0
+      aliases:
+      - ancho de muestra
+    - key: ley.modo
+      title: Origen de la ley provisional
+      meaning: Cómo se asigna una ley a las muestras sintéticas (la categorización necesita compósitos con ley para contarlos).
+      effect: modelo = ley del bloque que contiene la muestra (si no está estimado, respaldo por dominio); dominio = ley
+        media del dominio; constante = ley.constante.
+      values: modelo, dominio o constante
+      aliases:
+      - ley provisional
+    - key: ley.columna_modelo
+      title: Columna de ley del modelo
+      meaning: Columna del modelo con la ley a usar en el modo modelo (por ejemplo cu_idw).
+      aliases:
+      - columna de ley
+    - key: ley.constante
+      title: Ley constante
+      meaning: Ley que se asigna a todas las muestras en el modo constante.
+      values: número
+    - key: modelo.archivo
+      title: Modelo de bloques para la ley provisional
+      meaning: Modelo existente del que se toma la ley en el modo modelo.
+      advice: Debe ser el modelo completo, no uno recortado.
+      aliases:
+      - modelo de bloques
+    - key: modelo.xc
+      title: Columna centroide X
+      meaning: Nombre de la columna XC del modelo.
+    - key: modelo.yc
+      title: Columna centroide Y
+      meaning: Nombre de la columna YC del modelo.
+    - key: modelo.zc
+      title: Columna centroide Z
+      meaning: Nombre de la columna ZC del modelo.
+    - key: modelo.dx
+      title: Columna tamaño X
+      meaning: Nombre de la columna DX del modelo.
+    - key: modelo.dy
+      title: Columna tamaño Y
+      meaning: Nombre de la columna DY del modelo.
+    - key: modelo.dz
+      title: Columna tamaño Z
+      meaning: Nombre de la columna DZ del modelo.
+    - key: salida
+      title: Carpeta de salida del plan
+      meaning: Carpeta donde se escriben Plan_Resumen.json y los archivos temporales del plan.
+      effect: El reporte lee Plan_Resumen.json de aquí (ganancia.resumen_plan debe apuntar a él).
+      aliases:
+      - salida del plan
+    - key: conservar_temporal
+      title: Conservar la base temporal
+      meaning: true = deja Plan_Temporal.db después del paso (útil para revisar); false = la borra.
+      values: true o false
+  modelo:
+    conf: conf_crear_mb.json
+    summary: 'Crea un modelo de bloques 3D (con rotación y subbloques, formato compatible con Vulcan) a partir de un esquema
+      de grilla. Asigna a los bloques variables como el dominio usando sólidos, y elimina los que cumplan una excepción.
+      No estima leyes.
+
+      '
+    when: Cuando no tienes un modelo de bloques y quieres crearlo desde tus sólidos de dominio (conf_proyecto.json debe
+      tener crear_modelo_bloques = true para el flujo completo; pedido a mano se ejecuta igual).
+    steps:
+    - Genera la malla de bloques padre según el esquema
+    - Codifica las variables con los sólidos por prioridad
+    - Subdivide en subbloques los bloques que cortan los sólidos
+    - Elimina los bloques que cumplen las excepciones
+    - Escribe el CSV del modelo
+    reads: Los sólidos .obj
+    writes: El CSV del modelo de bloques (salida)
+    cautions:
+    - Sobrescribe el CSV de salida (confirmación obligatoria).
+    - La extensión es el largo en metros del modelo en cada eje, NO el número de bloques.
+    - Plunge y dip del modelo no están soportados (se fijan en 0).
+    aliases:
+    - crear modelo de bloques
+    - modelo de bloques
+    - grilla
+    - block model
+    params:
+    - key: esquema.origen_x
+      title: Origen X
+      meaning: Coordenada Este de la esquina mínima de la grilla (metros).
+      effect: Debe cubrir todo lo que quieras modelar; lo que quede fuera de la grilla no tendrá bloques.
+      values: metros
+      aliases:
+      - origen
+      - origen de la grilla
+    - key: esquema.origen_y
+      title: Origen Y
+      meaning: Coordenada Norte de la esquina mínima de la grilla (metros).
+      values: metros
+    - key: esquema.origen_z
+      title: Origen Z
+      meaning: Cota de la esquina mínima de la grilla (metros).
+      values: metros
+    - key: esquema.extension_x
+      title: Extensión X
+      meaning: Largo total del modelo en el eje X local, en metros (número de bloques padre × tamaño). No es el número de
+        bloques.
+      values: metros
+      aliases:
+      - extension
+      - largo del modelo
+    - key: esquema.extension_y
+      title: Extensión Y
+      meaning: Largo total del modelo en el eje Y local, en metros.
+      values: metros
+    - key: esquema.extension_z
+      title: Extensión Z
+      meaning: Largo total del modelo en el eje Z, en metros.
+      values: metros
+    - key: esquema.x_size
+      title: Tamaño del bloque padre X
+      meaning: Dimensión X del bloque padre en metros.
+      effect: Bloques más grandes = modelo más liviano y estimación más suavizada; más chicos = más detalle y más tiempo
+        y memoria.
+      advice: Suele elegirse del orden de 1/4 a 1/2 del espaciamiento de sondajes y compatible con la altura de banco.
+      values: metros
+      aliases:
+      - tamano de bloque
+      - bloque padre
+    - key: esquema.y_size
+      title: Tamaño del bloque padre Y
+      meaning: Dimensión Y del bloque padre en metros.
+      values: metros
+    - key: esquema.z_size
+      title: Tamaño del bloque padre Z
+      meaning: Dimensión Z del bloque padre en metros (normalmente la altura de banco).
+      values: metros
+    - key: esquema.bearing
+      title: Bearing del modelo
+      meaning: Azimut del eje X local del modelo en grados. 90 significa modelo sin rotación (X local = Este).
+      effect: Rota la grilla en planta para alinearla con la mineralización.
+      values: grados
+      aliases:
+      - rotacion
+      - azimut del modelo
+    - key: esquema.sub_x
+      title: Subbloque mínimo X
+      meaning: Tamaño mínimo en X de los subbloques que se generan donde un sólido corta el bloque padre.
+      effect: Más chico = contactos mejor definidos pero más bloques; igual al padre = sin subbloques.
+      values: metros
+      aliases:
+      - subbloque
+      - subbloqueo
+    - key: esquema.sub_y
+      title: Subbloque mínimo Y
+      meaning: Tamaño mínimo en Y de los subbloques.
+      values: metros
+    - key: esquema.sub_z
+      title: Subbloque mínimo Z
+      meaning: Tamaño mínimo en Z de los subbloques.
+      values: metros
+    - key: variables[*].nombre
+      title: Nombre de la variable
+      meaning: Variable que se agrega al modelo (por ejemplo cu_idw para la ley estimada o domcu para el dominio).
+      aliases:
+      - variables del modelo
+    - key: variables[*].tipo
+      title: Tipo de la variable
+      meaning: Tipo de dato de la variable.
+      values: Float, Integer o String
+    - key: variables[*].valor_defecto
+      title: Valor por defecto de la variable
+      meaning: Valor inicial de la variable en todos los bloques. -99 significa aún no estimado o sin dominio.
+      effect: Las pasadas de estimación suelen seleccionar los bloques con la variable en -99.
+      aliases:
+      - '-99'
+      - valor inicial
+    - key: variables[*].descripcion
+      title: Descripción de la variable
+      meaning: Texto libre para documentar la variable.
+    - key: solidos[*].ruta
+      title: Ruta del sólido
+      meaning: Archivo .obj que codifica una variable en los bloques que caen dentro.
+      aliases:
+      - solido
+      - obj
+    - key: solidos[*].variable
+      title: Variable que se asigna
+      meaning: Variable del modelo que recibe el valor del sólido (por ejemplo domcu).
+    - key: solidos[*].valor
+      title: Valor que se asigna
+      meaning: Valor que reciben los bloques dentro del sólido.
+      effect: Es el código de dominio que luego usan las pasadas.
+    - key: solidos[*].prioridad
+      title: Prioridad del sólido
+      meaning: Entero que decide qué sólido prevalece cuando se solapan; gana la mayor prioridad.
+      values: entero
+    - key: excepciones[*].expresion
+      title: Expresión de excepción
+      meaning: Condición estilo Vulcan; los bloques que la cumplan se eliminan (por ejemplo domcu eq -99 elimina los bloques
+        fuera de todo dominio).
+      effect: Una excepción mal escrita puede borrar bloques válidos; revisa el conteo de bloques tras crear el modelo.
+      aliases:
+      - excepciones
+      - eliminar bloques
+      - expresion
+    - key: excepciones[*].descripcion
+      title: Descripción de la excepción
+      meaning: Texto libre.
+    - key: tolerancia_pared
+      title: Tolerancia de pared
+      meaning: Distancia en metros para considerar dentro del sólido a bloques que están muy cerca de su pared.
+      effect: Subirla incluye más bloques de borde en el dominio; 0 es estricto.
+      values: metros >= 0
+    - key: salida
+      title: CSV del modelo de salida
+      meaning: Archivo donde se escribe el modelo creado.
+      effect: Debe ser el modelo que lean después recortar o estimar.
+    - key: esquema_csv.archivo
+      title: CSV para identificar el esquema
+      meaning: CSV de un modelo de bloques existente del que la herramienta de esquema deduce origen, extensión, tamaño
+        y bearing. El motor de creación ignora esta clave.
+      aliases:
+      - identificar esquema
+    - key: esquema_csv.col_xc
+      title: Columna XC del CSV
+      meaning: Nombre de la columna del centroide X en el CSV de esquema.
+    - key: esquema_csv.col_yc
+      title: Columna YC del CSV
+      meaning: Nombre de la columna del centroide Y.
+    - key: esquema_csv.col_zc
+      title: Columna ZC del CSV
+      meaning: Nombre de la columna del centroide Z.
+    - key: esquema_csv.col_dx
+      title: Columna DX del CSV
+      meaning: Nombre de la columna del tamaño X.
+    - key: esquema_csv.col_dy
+      title: Columna DY del CSV
+      meaning: Nombre de la columna del tamaño Y.
+    - key: esquema_csv.col_dz
+      title: Columna DZ del CSV
+      meaning: Nombre de la columna del tamaño Z.
+  recortar:
+    conf: conf_recorte.json
+    summary: 'Deja en el modelo solo los bloques cuyo centroide cae dentro de un sólido (por ejemplo la zona de óxidos),
+      para estimar únicamente esa zona.
+
+      '
+    when: Antes de estimar, si solo te interesa una parte del modelo completo.
+    reads: El modelo de bloques completo y el sólido de recorte
+    writes: El CSV del modelo recortado
+    cautions:
+    - La salida no puede ser el mismo archivo que el modelo de entrada.
+    - Con recorte activo, conf_estimacion.json modelo debe apuntar a la salida de este paso.
+    - Los bloques parcialmente dentro (centroide fuera) no se incluyen.
+    aliases:
+    - recortar modelo
+    - clip
+    - cortar modelo
+    - filtrar bloques
+    params:
+    - key: activo
+      title: Paso activo
+      meaning: false = el flujo completo omite el recorte y estima el modelo completo.
+      values: true o false
+    - key: modelo
+      title: Modelo completo (entrada)
+      meaning: CSV del modelo de bloques completo.
+      aliases:
+      - modelo de entrada
+    - key: salida
+      title: Modelo recortado (salida)
+      meaning: CSV que se genera con los bloques que caen dentro del sólido.
+      effect: Debe distinguirse del archivo de entrada.
+    - key: solido.ruta
+      title: Sólido de recorte
+      meaning: Archivo .obj con la zona que se conserva.
+      aliases:
+      - solido objetivo
+      - oxidos
+    - key: solido.tolerancia_pared
+      title: Tolerancia de pared
+      meaning: Distancia en metros para incluir bloques cuyo centroide está justo fuera de la pared del sólido.
+      effect: Subirla incluye más bloques de borde; 0 es estricto.
+      values: metros >= 0
+    - key: solido.campos.x
+      title: Columna X del centroide
+      meaning: Columna del modelo con el centroide X (XC).
+    - key: solido.campos.y
+      title: Columna Y del centroide
+      meaning: Columna del modelo con el centroide Y (YC).
+    - key: solido.campos.z
+      title: Columna Z del centroide
+      meaning: Columna del modelo con el centroide Z (ZC).
+  estimar:
+    conf: conf_estimacion.json
+    summary: 'Estima la ley de los bloques por IDW en varias pasadas (cada una con su propio elipsoide, mínimo y máximo
+      de muestras y condición) y calcula la distancia promedio a 3 sondajes, que luego usa la categorización.
+
+      '
+    when: Después de tener los compósitos en la base y un modelo de bloques (completo o recortado).
+    steps:
+    - Lee el modelo de bloques y los compósitos
+    - Reinicia la variable si se pidió (guarda la anterior)
+    - Para cada pasada selecciona los bloques por su Condición y busca muestras dentro del elipsoide
+    - Pondera por 1 / distancia^potencia y escribe la ley y los datos de reporte
+    - Calcula la distancia promedio a 3 sondajes (d3h)
+    - Escribe el CSV del modelo estimado
+    reads: El modelo de bloques y la tabla de compósitos de Database.db
+    writes: El CSV del modelo estimado (con ley, nº de muestras, nº de sondajes, pasada y d3h)
+    cautions:
+    - Puede tardar horas con cientos de pasadas.
+    - Sobrescribe el CSV del modelo estimado (confirmación obligatoria).
+    - Una pasada que no estima nada avisa el motivo (filtro de dominio sin muestras, condición sin bloques o mínimo de muestras
+      no alcanzado).
+    aliases:
+    - estimar
+    - estimacion
+    - idw
+    - interpolar
+    - estimar leyes
+    params:
+    - key: modelo
+      title: Modelo de bloques de entrada
+      meaning: CSV del modelo que se estima (el completo o el recortado).
+      effect: Con recorte activo debe ser la salida de conf_recorte.json.
+      aliases:
+      - modelo de entrada
+    - key: proyecto
+      title: Base con los compósitos
+      meaning: Database.db donde está la tabla de compósitos que usan las pasadas.
+      aliases:
+      - database
+      - base de datos
+    - key: campos.x
+      title: Columna X del compósito
+      meaning: Columna con la coordenada X del punto medio del compósito (MIDX).
+    - key: campos.y
+      title: Columna Y del compósito
+      meaning: Columna con la coordenada Y del punto medio (MIDY).
+    - key: campos.z
+      title: Columna Z del compósito
+      meaning: Columna con la coordenada Z del punto medio (MIDZ).
+    - key: campos.sondaje
+      title: Columna del sondaje
+      meaning: Columna con el nombre del sondaje del compósito (Sondaje).
+      effect: Se usa para contar sondajes distintos y limitar compósitos por sondaje.
+    - key: campos.bloque_xc
+      title: Columna XC del bloque
+      meaning: Columna del centroide X en el modelo de bloques.
+    - key: campos.bloque_yc
+      title: Columna YC del bloque
+      meaning: Columna del centroide Y en el modelo de bloques.
+    - key: campos.bloque_zc
+      title: Columna ZC del bloque
+      meaning: Columna del centroide Z en el modelo de bloques.
+    - key: campos.bloque_dx
+      title: Columna DX del bloque
+      meaning: Columna del tamaño X del bloque.
+    - key: campos.bloque_dy
+      title: Columna DY del bloque
+      meaning: Columna del tamaño Y del bloque.
+    - key: campos.bloque_dz
+      title: Columna DZ del bloque
+      meaning: Columna del tamaño Z del bloque.
+    - key: reporte.nsamp
+      title: Columna del número de muestras
+      meaning: Nombre de la columna donde se guarda cuántas muestras estimaron cada bloque. Vacío = nombre por defecto <variable>_nsamp.
+      aliases:
+      - numero de muestras
+    - key: reporte.nholes
+      title: Columna del número de sondajes
+      meaning: Columna con cuántos sondajes distintos estimaron el bloque. Vacío = <variable>_nholes.
+      effect: La categorización cuenta estos sondajes (campos.nholes de conf_categ.json debe llamarse igual).
+      aliases:
+      - numero de sondajes
+      - nholes
+    - key: reporte.flag
+      title: Columna de la pasada
+      meaning: Columna con el número de pasada con que se estimó el bloque. Vacío = <variable>_pass.
+      effect: La categorización solo acepta Medido, Indicado o Inferido si la pasada es 3 o menor.
+      aliases:
+      - flag
+      - pasada del bloque
+      - pass
+    - key: reporte.distclose_cart
+      title: Columna de distancia a la muestra más cercana (cartesiana)
+      meaning: Si tiene nombre, guarda la distancia cartesiana a la muestra más cercana.
+    - key: reporte.distclose_anisot
+      title: Columna de distancia a la muestra más cercana (anisotrópica)
+      meaning: Si tiene nombre, guarda esa distancia medida en el espacio anisotrópico.
+    - key: reporte.nn
+      title: Columna del vecino más cercano
+      meaning: Si tiene nombre, guarda la ley de la muestra más cercana (vecino más cercano), útil para validar.
+    - key: reporte.avgdist_cart
+      title: Columna de distancia promedio (cartesiana)
+      meaning: Si tiene nombre, guarda la distancia promedio cartesiana a las muestras usadas.
+    - key: reporte.avgdist_anisot
+      title: Columna de distancia promedio (anisotrópica)
+      meaning: Si tiene nombre, guarda la distancia promedio anisotrópica a las muestras usadas.
+    - key: reporte.sondaje
+      title: Columna del sondaje (reporte)
+      meaning: Columna con el sondaje, usada para los datos de reporte por bloque.
+    - key: reporte.valor_defecto
+      title: Valor de bloque no estimado
+      meaning: Valor que marca un bloque aún sin estimar (normalmente -99).
+      effect: Las Condiciones de las pasadas (variable eq -99) dependen de este valor.
+      values: número
+      aliases:
+      - '-99'
+      - no estimado
+    - key: pasadas[*].ID
+      title: ID de la pasada
+      meaning: Identificador único de la pasada (por ejemplo cu21id1 = cobre, dominio 21, pasada 1).
+      aliases:
+      - id
+      - identificador de pasada
+    - key: pasadas[*].Pasada
+      title: Número de pasada
+      meaning: 'Orden de la pasada: 1 es la más estricta.'
+      effect: La categorización solo acepta como Medido, Indicado o Inferido a los bloques estimados en la pasada 3 o menor.
+      aliases:
+      - numero de pasada
+    - key: pasadas[*].Compósito
+      title: Tabla de compósitos
+      meaning: Tabla de la base con los compósitos que usa la pasada (assay_comp).
+      aliases:
+      - tabla de compositos
+      - assay_comp
+    - key: pasadas[*].Campo Ley
+      title: Campo de ley
+      meaning: Columna de ley que se interpola.
+      effect: Usar la columna acotada (por ejemplo CUPCT_ACOT) aplica el tope de altas leyes; la sin acotar (CUPCT) no.
+      aliases:
+      - campo ley
+      - ley a interpolar
+      - cupct
+    - key: pasadas[*].Peso
+      title: Peso del compósito
+      meaning: Columna que pondera cada muestra, normalmente el largo del compósito (length).
+      effect: Con length los compósitos más largos pesan más.
+      aliases:
+      - peso
+      - length
+    - key: pasadas[*].Campo dominio
+      title: Campo de dominio
+      meaning: Columna del compósito con el dominio, usada para filtrar las muestras de la pasada.
+      aliases:
+      - campo dominio
+      - domcu
+    - key: pasadas[*].Valor dominio
+      title: Valor de dominio
+      meaning: Dominio o dominios cuyas muestras usa la pasada. Acepta uno (21) o varios separados por coma (21, 22, 23);
+        vacío = sin filtro.
+      effect: Con varios dominios sus muestras se usan juntas (contacto suave entre ellos). La Condición sigue eligiendo
+        los bloques a estimar.
+      aliases:
+      - valor dominio
+      - dominios de la pasada
+    - key: pasadas[*].Variable
+      title: Variable estimada
+      meaning: Columna del modelo donde se escribe la ley estimada (por ejemplo cu_idw). Las filas con la misma Variable
+        forman un elemento multipasada.
+      aliases:
+      - variable
+      - cu_idw
+    - key: pasadas[*].Potencia
+      title: Potencia del IDW
+      meaning: Exponente de la distancia en el peso 1 / distancia^potencia.
+      effect: Subirla da más peso a las muestras más cercanas (estimación más local y menos suavizada); bajarla suaviza
+        más. Con potencia 1 el efecto de la distancia es débil; con valores altos se acerca al vecino más cercano.
+      advice: Valores de 2 a 3 son los habituales; valida contra una estimación de referencia o validación cruzada antes
+        de cambiarla.
+      values: número > 0
+      aliases:
+      - potencia
+      - exponente
+      - potencia idw
+    - key: pasadas[*].Mayor
+      title: Radio mayor
+      meaning: Alcance del elipsoide de búsqueda en el eje mayor (metros).
+      effect: Subirlo incluye muestras más lejanas (más bloques estimados en esa pasada y más suavizado); bajarlo es más
+        estricto.
+      advice: Las pasadas siguientes suelen ampliar los radios de la anterior (por ejemplo ×1.5 y ×2).
+      values: metros > 0
+      aliases:
+      - radio mayor
+      - radio de busqueda
+      - alcance
+      - radios
+    - key: pasadas[*].Semi
+      title: Radio semi
+      meaning: Alcance del elipsoide en el eje intermedio (metros).
+      effect: Igual que el mayor pero en la dirección intermedia.
+      values: metros > 0
+      aliases:
+      - radio semi
+      - radio intermedio
+    - key: pasadas[*].Menor
+      title: Radio menor
+      meaning: Alcance del elipsoide en el eje menor (metros).
+      effect: Igual que el mayor pero en la dirección de menor continuidad.
+      values: metros > 0
+      aliases:
+      - radio menor
+    - key: pasadas[*].Bearing
+      title: Bearing del elipsoide
+      meaning: 'Azimut de orientación del elipsoide de búsqueda: un número (igual para todos los bloques) o el nombre de
+        una columna del modelo con el ángulo de cada bloque (por ejemplo lva_b).'
+      effect: Orientarlo con la continuidad geológica evita mezclar muestras de direcciones sin relación; con columna del
+        modelo la anisotropía varía bloque a bloque (el motor agrupa por cada combinación de ángulos, lo que puede tardar
+        más).
+      aliases:
+      - bearing
+      - rumbo
+      - anisotropia variable
+      - lva_b
+    - key: pasadas[*].Plunge
+      title: Plunge del elipsoide
+      meaning: 'Inclinación (plunge) del eje mayor: número o columna del modelo (por ejemplo lva_p).'
+      aliases:
+      - plunge
+      - lva_p
+    - key: pasadas[*].Dip
+      title: Dip del elipsoide
+      meaning: 'Manteo (dip) del elipsoide: número o columna del modelo (por ejemplo lva_d).'
+      aliases:
+      - dip
+      - manteo
+      - lva_d
+    - key: pasadas[*].Mín Samp
+      title: Mínimo de muestras
+      meaning: Mínimo de compósitos que debe reunir un bloque para estimarse en esa pasada.
+      effect: Subirlo hace la pasada más exigente (menos bloques estimados y más estimación en pasadas posteriores); bajarlo
+        estima más bloques con menos información, con más riesgo de sobreextrapolar.
+      values: entero >= 1
+      aliases:
+      - minimo de muestras
+      - min samp
+      - minimo de compositos
+    - key: pasadas[*].Máx Samp
+      title: Máximo de muestras
+      meaning: Máximo de compósitos que se usan por bloque (los más cercanos). 0 = sin límite.
+      effect: Bajarlo suaviza menos y acelera el cálculo; subirlo promedia más muestras (más suavizado).
+      values: entero >= 0
+      aliases:
+      - maximo de muestras
+      - max samp
+      - maximo de compositos
+    - key: pasadas[*].Máx/oct
+      title: Máximo por octante
+      meaning: Máximo de compósitos por octante alrededor del bloque. 0 = sin límite.
+      effect: Evita que una sola dirección (por ejemplo un sondaje denso) domine el promedio; con un valor chico exige muestras
+        repartidas alrededor del bloque.
+      values: entero >= 0
+      aliases:
+      - octante
+      - maximo por octante
+      - max oct
+    - key: pasadas[*].Máx samp/sond
+      title: Máximo de compósitos por sondaje
+      meaning: Máximo de compósitos que puede aportar un mismo sondaje. 0 = sin límite.
+      effect: Bajarlo (por ejemplo a 2) obliga a usar más sondajes distintos, lo que reduce el efecto de un sondaje con
+        altas leyes y mejora el conteo de sondajes para categorizar.
+      values: entero >= 0
+      aliases:
+      - maximo por sondaje
+      - max samp sond
+    - key: pasadas[*].Disc X
+      title: Discretización X
+      meaning: Número de puntos en X con que se discretiza el bloque; la ley del bloque promedia los puntos. 1 = solo el
+        centroide.
+      effect: Más puntos representan mejor el volumen del bloque pero tardan más (nx·ny·nz puntos por bloque).
+      values: entero >= 1
+      aliases:
+      - discretizacion
+    - key: pasadas[*].Disc Y
+      title: Discretización Y
+      meaning: Número de puntos en Y con que se discretiza el bloque.
+      values: entero >= 1
+    - key: pasadas[*].Disc Z
+      title: Discretización Z
+      meaning: Número de puntos en Z con que se discretiza el bloque.
+      values: entero >= 1
+    - key: pasadas[*].Condición
+      title: Condición de la pasada
+      meaning: Expresión estilo Vulcan que elige los bloques que esa pasada estima, por ejemplo cu_idw eq -99 and domcu
+        eq 21 (solo los aún no estimados del dominio 21). Operadores eq ne gt ge lt le y and or not.
+      effect: 'La condición se evalúa sobre el modelo vivo, que se actualiza tras cada pasada: por eso una pasada posterior
+        solo rellena lo que las anteriores dejaron en -99. Una condición mal escrita deja la pasada sin estimar nada (el
+        motor lo avisa).'
+      aliases:
+      - condicion
+      - condicion de la pasada
+      - expresion
+    - key: est_parent.activo
+      title: Estimar a nivel de bloque padre
+      meaning: true = en un modelo con subbloques se estima a la resolución del bloque padre y los subbloques heredan el
+        valor (como Vulcan).
+      effect: Reduce mucho el tiempo con modelos subbloqueados; con false se estima cada subbloque.
+      values: true o false
+      aliases:
+      - bloque padre
+      - estimacion por padre
+    - key: est_parent.origen_x
+      title: Origen X del bloque padre
+      meaning: Origen X de la grilla de bloques padre (debe coincidir con el esquema del modelo).
+      aliases:
+      - origen del padre
+    - key: est_parent.origen_y
+      title: Origen Y del bloque padre
+      meaning: Origen Y de la grilla padre.
+    - key: est_parent.origen_z
+      title: Origen Z del bloque padre
+      meaning: Origen Z de la grilla padre.
+    - key: est_parent.tam_x
+      title: Tamaño X del bloque padre
+      meaning: Tamaño X del bloque padre en metros.
+      aliases:
+      - tamano del padre
+    - key: est_parent.tam_y
+      title: Tamaño Y del bloque padre
+      meaning: Tamaño Y del bloque padre en metros.
+    - key: est_parent.tam_z
+      title: Tamaño Z del bloque padre
+      meaning: Tamaño Z del bloque padre en metros.
+    - key: est_parent.bearing
+      title: Bearing del modelo
+      meaning: Azimut del eje X local del modelo (90 = sin rotación); debe coincidir con el esquema del modelo.
+    - key: d3h.mayor
+      title: Radio mayor de la distancia a 3 sondajes
+      meaning: Radio mayor (metros) de la búsqueda que calcula la distancia promedio a 3 sondajes.
+      effect: Si es menor que la distancia de Potencial de la categorización, los bloques más lejanos quedan sin distancia
+        y no se categorizan.
+      advice: Debe ser mayor o igual que distancias.potencial de conf_categ.json.
+      values: metros > 0
+      aliases:
+      - d3h
+      - distancia a 3 sondajes
+      - radio d3h
+    - key: d3h.semi
+      title: Radio semi de la distancia a 3 sondajes
+      meaning: Radio semi (metros) de esa búsqueda.
+      values: metros > 0
+    - key: d3h.menor
+      title: Radio menor de la distancia a 3 sondajes
+      meaning: Radio menor (metros) de esa búsqueda.
+      values: metros > 0
+    - key: d3h.elemento_principal
+      title: Elemento principal
+      meaning: Variable (por ejemplo cu_idw) cuyas pasadas definen la estimación de la distancia a 3 sondajes y de la que
+        hereda la orientación.
+      effect: Con radios iguales (esfera) se omite la orientación porque no cambia el resultado y ahorra horas.
+      aliases:
+      - elemento principal
+    - key: reiniciar.activo
+      title: Reiniciar la variable antes de estimar
+      meaning: true = antes de estimar se reinician a «no estimado» la variable y sus columnas de reporte (útil si el modelo
+        ya trae una estimación previa).
+      effect: Sin reiniciar, las pasadas solo estiman los bloques que aún valen -99.
+      values: true o false
+      aliases:
+      - reiniciar
+      - reestimar
+    - key: reiniciar.conservar_anterior
+      title: Conservar la estimación anterior
+      meaning: true = la ley previa queda en <variable>_anterior al reiniciar.
+      effect: Permite calcular la ganancia de ley y metal fino contra lo anterior en el reporte.
+      values: true o false
+      aliases:
+      - conservar anterior
+    - key: salida
+      title: CSV del modelo estimado
+      meaning: Archivo del modelo estimado que se genera.
+      effect: Es la entrada de valorizar (o de categorizar si no se valoriza).
+      aliases:
+      - modelo estimado
+  valorizar:
+    conf: conf_valorizacion.json
+    summary: 'Agrega al modelo estimado los atributos económicos y físicos que usa el reporte: densidad, recuperación por
+      metal, NSR y equivalente. No recalcula leyes.
+
+      '
+    when: Después de estimar y antes de categorizar, si quieres reportar con NSR o equivalente. Si no, usa valorizar_modelo
+      = false.
+    steps:
+    - Asigna una densidad fija si se pidió
+    - Calcula la recuperación de cada metal (columna pct_rec_<clave>)
+    - Evalúa las expresiones de NSR y de equivalente
+    - Escribe el CSV valorizado
+    reads: El modelo estimado
+    writes: El CSV del modelo valorizado
+    cautions:
+    - Sobrescribe el CSV valorizado (confirmación obligatoria).
+    - Las expresiones se evalúan con los nombres de las columnas del modelo; un nombre mal escrito detiene el paso.
+    aliases:
+    - valorizar
+    - valorizacion
+    - nsr
+    - equivalente
+    - densidad
+    - recuperacion
+    params:
+    - key: modelo
+      title: Modelo estimado (entrada)
+      meaning: CSV del modelo estimado que se valoriza.
+      aliases:
+      - modelo de entrada
+    - key: asignar_densidad
+      title: Asignar una densidad fija
+      meaning: true = se escribe la misma densidad en todos los bloques; false = se respeta la densidad variable que ya
+        trae el modelo.
+      effect: Con false, col_densidad debe ser la columna del modelo con la densidad (si falta, avisa) y es la que usa el
+        reporte.
+      values: true o false
+      aliases:
+      - densidad fija
+    - key: densidad
+      title: Densidad fija
+      meaning: Densidad en t/m3 que se asigna a todos los bloques cuando asignar_densidad es true.
+      effect: Cambia directamente el tonelaje del reporte (tonelaje = densidad × volumen).
+      values: t/m3
+      aliases:
+      - densidad
+    - key: col_densidad
+      title: Columna de densidad
+      meaning: Columna del modelo donde se escribe la densidad fija, o de donde se lee la densidad variable.
+      effect: Debe coincidir con coboDensidad de conf_reporte.json.
+      aliases:
+      - columna de densidad
+    - key: metales[*].clave
+      title: Clave del metal
+      meaning: Identificador corto del metal (cu, au); da nombre a la columna de recuperación pct_rec_<clave>.
+      aliases:
+      - metal
+      - clave
+    - key: metales[*].columna
+      title: Columna de ley del metal
+      meaning: Columna del modelo con la ley estimada del metal (por ejemplo cu_idw).
+      aliases:
+      - columna de ley
+    - key: metales[*].exp_recuperacion
+      title: Expresión de recuperación
+      meaning: 'Recuperación del metal en porcentaje: un número (por ejemplo 85) o una expresión por bloque que puede depender
+        de la ley y admite condicionales y funciones de math.'
+      effect: Bajarla reduce el NSR y el equivalente del metal; las recuperaciones variables con la ley permiten curvas
+        de recuperación.
+      aliases:
+      - recuperacion
+      - expresion de recuperacion
+    - key: exp_nsr
+      title: Expresión del NSR
+      meaning: Fórmula del NSR con las columnas de ley y de recuperación del modelo (por ejemplo cu_idw*100).
+      effect: El corte del reporte puede aplicarse sobre el NSR, así que esta fórmula define qué bloques entran.
+      aliases:
+      - nsr
+      - expresion de nsr
+    - key: col_nsr
+      title: Columna del NSR
+      meaning: Nombre de la columna donde se escribe el NSR.
+      effect: Debe coincidir con coboNsr de conf_reporte.json si el reporte usa NSR.
+    - key: exp_equiv
+      title: Expresión del equivalente
+      meaning: Fórmula de la ley equivalente (por ejemplo cu_idw cuando hay un solo metal).
+      aliases:
+      - equivalente
+      - expresion de equivalente
+    - key: col_equiv
+      title: Columna del equivalente
+      meaning: Nombre de la columna donde se escribe el equivalente.
+      effect: Debe coincidir con coboEquiv de conf_reporte.json si el corte usa el equivalente.
+    - key: salida
+      title: CSV del modelo valorizado
+      meaning: Archivo del modelo valorizado que se genera.
+      effect: Es la entrada de categorizar.
+  categorizar:
+    conf: conf_categ.json
+    summary: 'Clasifica los bloques en Medido (1), Indicado (2), Inferido (3) o Potencial (4) según la distancia promedio
+      a 3 sondajes, el número de sondajes que los estimaron y la pasada con que se estimaron.
+
+      '
+    when: Después de valorizar (o de estimar si no valorizas), antes del reporte.
+    steps:
+    - Asigna Potencial a todo bloque con 0 < distancia <= distancias.potencial
+    - 'En la banda de Medido (hasta distancias.medido): Medido con 3 o más sondajes, Indicado con 2, Inferido con 1'
+    - 'En la banda de Indicado (hasta distancias.indicado): Indicado con 2 o más sondajes, Inferido con 1'
+    - 'En la banda de Inferido (hasta distancias.inferido): Inferido con 1 o más sondajes'
+    - Aplica el piso si está activo (la categoría nueva no puede ser peor que la anterior)
+    reads: El modelo valorizado (o estimado) con distancia, nº de sondajes y pasada
+    writes: El CSV categorizado con la columna de categoría
+    cautions:
+    - Sobrescribe el CSV categorizado (confirmación obligatoria).
+    - Solo bloques estimados en la pasada 3 o menor pueden ser Medido, Indicado o Inferido.
+    - Las distancias de corte deben ser crecientes (medido < indicado < inferido < potencial); el motor avisa si no lo son.
+    - Si la columna de distancia no tiene valores mayores que 0 el paso se detiene (no categoriza en silencio).
+    aliases:
+    - categorizar
+    - categorizacion
+    - medido
+    - indicado
+    - inferido
+    - potencial
+    - clasificar recursos
+    params:
+    - key: modelo
+      title: Modelo de entrada
+      meaning: CSV del modelo valorizado (o estimado si no se valoriza).
+      aliases:
+      - modelo de entrada
+    - key: metodo
+      title: Método de categorización
+      meaning: Método de categorización (IDW).
+      values: IDW
+    - key: campos.distancia
+      title: Columna de distancia a 3 sondajes
+      meaning: Columna con la distancia promedio a 3 sondajes (d3h_avgdist_anisot) calculada por la estimación.
+      effect: Si el modelo no la trae o no tiene valores mayores que 0, el paso se detiene.
+      aliases:
+      - distancia
+      - d3h
+    - key: campos.nholes
+      title: Columna del número de sondajes
+      meaning: Columna con cuántos sondajes estimaron cada bloque (por ejemplo cu_idw_nholes).
+      effect: Define si un bloque llega a Medido (3 o más sondajes), Indicado (2) o Inferido (1).
+      aliases:
+      - numero de sondajes
+    - key: campos.pass
+      title: Columna de la pasada
+      meaning: Columna con la pasada con que se estimó cada bloque (por ejemplo cu_idw_pass).
+      effect: Solo las pasadas 1 a 3 pueden dar Medido, Indicado o Inferido.
+      aliases:
+      - pasada
+    - key: campos.col_categoria
+      title: Columna de la categoría nueva
+      meaning: Nombre de la columna donde se escribe la categoría resultante (por ejemplo categ_nuevo).
+      effect: Usa un nombre distinto de la categoría anterior (categ) para no pisarla y poder comparar.
+      aliases:
+      - categoria nueva
+      - categ_nuevo
+    - key: piso.activo
+      title: Piso de categoría
+      meaning: true = la categoría nueva no puede ser peor que la anterior (orden Medido > Indicado > Inferido > Potencial);
+        si la nueva no existe se conserva la anterior.
+      effect: Evita que agregar sondajes degrade un bloque (la estimación se detiene en la primera pasada que reúne el mínimo
+        de muestras, no de sondajes). Con piso activo se agrega la columna con el resultado sin piso.
+      values: true o false
+      aliases:
+      - piso
+      - categoria anterior
+    - key: piso.columna_anterior
+      title: Columna de la categoría anterior
+      meaning: Columna del modelo con la categoría previa (por ejemplo categ).
+      effect: Si el piso está activo y el modelo no la trae, el paso se detiene con un mensaje claro.
+      aliases:
+      - categ
+    - key: distancias.medido
+      title: Distancia máxima de Medido
+      meaning: Distancia promedio a 3 sondajes (metros) hasta la cual un bloque puede ser Medido.
+      effect: Subirla amplía el recurso Medido (más optimista); bajarla lo reduce. Es una decisión de la persona competente
+        y debe tener respaldo geoestadístico (alcance del variograma, continuidad).
+      values: metros
+      aliases:
+      - distancia de medido
+      - medido
+    - key: distancias.indicado
+      title: Distancia máxima de Indicado
+      meaning: Distancia hasta la cual un bloque puede ser Indicado.
+      effect: Subirla amplía Indicado; debe ser mayor que la de Medido.
+      values: metros
+      aliases:
+      - distancia de indicado
+      - indicado
+    - key: distancias.inferido
+      title: Distancia máxima de Inferido
+      meaning: Distancia hasta la cual un bloque puede ser Inferido.
+      effect: Subirla amplía Inferido; debe ser mayor que la de Indicado.
+      values: metros
+      aliases:
+      - distancia de inferido
+      - inferido
+    - key: distancias.potencial
+      title: Distancia máxima de Potencial
+      meaning: Distancia hasta la cual un bloque se marca Potencial (sin filtro de pasada).
+      effect: La distancia a 3 sondajes de la estimación (d3h) debe tener un radio de búsqueda al menos igual, o los bloques
+        lejanos no tendrán distancia.
+      values: metros
+      aliases:
+      - distancia de potencial
+      - potencial
+    - key: salida
+      title: CSV categorizado
+      meaning: Archivo del modelo categorizado que se genera.
+      effect: Es la entrada del reporte.
+      aliases:
+      - modelo categorizado
+  reporte:
+    conf: conf_reporte.json
+    summary: 'Genera el reporte de recursos en Excel (hojas Resumen, Resumen_Potencial, Comparacion_Categ y, con un plan,
+      Ganancia_Plan) y un CSV por hoja. Resume tonelaje y leyes por dominio y categoría con el corte elegido.
+
+      '
+    when: Al final del flujo, para entregar los resultados.
+    steps:
+    - Aplica los filtros (sólido, bloques minados)
+    - Aplica el corte sobre la variable elegida
+    - Calcula tonelaje = densidad × volumen y promedia leyes ponderando por tonelaje
+    - Agrupa por dominio y categoría
+    - Escribe el Excel y los CSV
+    reads: El modelo categorizado (y Plan_Resumen.json si hay ganancia del plan)
+    writes: Un Excel con fecha y hora en el nombre y un CSV por hoja (no sobrescribe nada)
+    aliases:
+    - reporte
+    - reporte de recursos
+    - excel
+    - informe
+    - tonelaje
+    - resumen de recursos
+    params:
+    - key: modelo
+      title: Modelo categorizado
+      meaning: CSV categorizado que se reporta.
+      aliases:
+      - modelo de entrada
+    - key: salida
+      title: Carpeta del reporte
+      meaning: Carpeta donde se escribe el Excel y los CSV.
+      aliases:
+      - carpeta del reporte
+    - key: columnas.coboGrupo
+      title: Columna de agrupación
+      meaning: Columna del modelo (por ejemplo domcu) cuyos valores forman las filas del resumen.
+      aliases:
+      - grupo
+      - dominio del reporte
+    - key: columnas.coboCategoria
+      title: Columna de categoría
+      meaning: Columna con la categoría de recursos (categ_nuevo).
+      effect: Para reportar la categoría anterior usa categ; para la nueva, categ_nuevo.
+    - key: columnas.coboDensidad
+      title: Columna de densidad
+      meaning: Columna del modelo con la densidad (t/m3) para calcular tonelaje.
+      effect: Debe existir en el modelo (la escribe o respeta valorizar).
+      aliases:
+      - densidad
+    - key: columnas.coboVolumen
+      title: Columna de volumen
+      meaning: Columna con el volumen del bloque. Vacío = se calcula como DX × DY × DZ.
+      effect: Úsala si el modelo trae volúmenes parciales (subbloques cortados).
+    - key: columnas.coboXLen
+      title: Columna de tamaño X
+      meaning: Columna con el tamaño X del bloque (DX).
+    - key: columnas.coboYLen
+      title: Columna de tamaño Y
+      meaning: Columna con el tamaño Y del bloque (DY).
+    - key: columnas.coboZLen
+      title: Columna de tamaño Z
+      meaning: Columna con el tamaño Z del bloque (DZ).
+    - key: columnas.coboNsr
+      title: Columna del NSR
+      meaning: Columna con el NSR (la escribe valorizar). Vacío si el modelo no está valorizado.
+    - key: columnas.coboEquiv
+      title: Columna del equivalente
+      meaning: Columna con la ley equivalente (la escribe valorizar). Vacío si no está valorizado.
+    - key: variable_corte
+      title: Variable de corte
+      meaning: Variable sobre la que se aplica el cutoff.
+      effect: nsr o equiv usan las columnas de la valorización; si el modelo no está valorizado (valorizado = false) el
+        corte se aplica a la ley del primer metal.
+      values: nsr o equiv
+      aliases:
+      - variable de corte
+    - key: cutoff
+      title: Ley de corte (cutoff)
+      meaning: Valor mínimo de la variable de corte para que un bloque entre al reporte.
+      effect: Subirlo baja el tonelaje y sube la ley media; bajarlo incluye más material de menor ley. 0 incluye todo lo
+        estimado.
+      advice: Fíjalo con el criterio económico del proyecto (costos y precios), no por la distribución de leyes.
+      values: número en las unidades de la variable de corte
+      aliases:
+      - cutoff
+      - cut-off
+      - ley de corte
+      - corte
+    - key: metal_principal
+      title: Metal principal
+      meaning: Nombre del metal principal; define el encabezado del equivalente y la unidad de los finos (miles de onzas
+        para Au, millones de onzas para otros).
+      aliases:
+      - metal principal
+    - key: unidad_principal
+      title: Unidad del metal principal
+      meaning: Unidad en que viene la ley del principal. oz = ya está en onzas; otra unidad (g/t, ppm) se convierte con
+        31.1035 g por onza.
+      effect: Una unidad mal indicada cambia los finos en onzas por un factor.
+      aliases:
+      - unidad
+    - key: metales[*].columna
+      title: Columna de ley del metal
+      meaning: Columna del modelo con la ley de cada metal que aparecerá en el reporte.
+      aliases:
+      - metales del reporte
+    - key: metales[*].etiqueta
+      title: Etiqueta del metal
+      meaning: Nombre que se muestra en el reporte (Cu, Au).
+    - key: metales[*].unidad
+      title: Unidad del metal
+      meaning: Unidad de la ley (pct, ppm, g/t).
+    - key: metales[*].factor
+      title: Factor de conversión
+      meaning: Factor que convierte la ley a la unidad mostrada; 1 = sin conversión.
+      values: número
+    - key: fecha_reporte
+      title: Fecha del reporte
+      meaning: Fecha (AAAA-MM-DD) que aparece en el título y en el período del archivo.
+    - key: etiqueta_precios
+      title: Nota de precios
+      meaning: Texto libre con los precios usados, que se imprime en el pie del reporte.
+    - key: solido.activo
+      title: Reportar solo dentro de un sólido
+      meaning: true = solo se reportan los bloques cuyo centroide cae dentro del sólido; el archivo lleva el sufijo con
+        el nombre del sólido.
+      effect: Útil para reportar una zona (por ejemplo óxidos) sin recortar el modelo.
+      values: true o false
+      aliases:
+      - reportar dentro de un solido
+    - key: solido.ruta
+      title: Sólido del reporte
+      meaning: Archivo .obj del sólido para el filtro.
+      aliases:
+      - solido del reporte
+    - key: solido.tolerancia_pared
+      title: Tolerancia de pared del sólido
+      meaning: Distancia en metros para incluir bloques justo fuera de la pared.
+      values: metros >= 0
+    - key: solido.campos.x
+      title: Columna X del centroide (sólido)
+      meaning: Columna del centroide X para la prueba punto-en-sólido (XC).
+    - key: solido.campos.y
+      title: Columna Y del centroide (sólido)
+      meaning: Columna del centroide Y (YC).
+    - key: solido.campos.z
+      title: Columna Z del centroide (sólido)
+      meaning: Columna del centroide Z (ZC).
+    - key: minado.activo
+      title: Usar variable de minado
+      meaning: true = se excluyen del reporte los bloques ya minados (según la variable).
+      values: true o false
+      aliases:
+      - minado
+      - bloques minados
+    - key: minado.variable
+      title: Variable de minado
+      meaning: Columna del modelo que indica cuánto está minado (por ejemplo topof).
+      effect: Los valores vacíos cuentan como no minado (el reporte avisa).
+    - key: minado.tipo
+      title: Tipo de variable de minado
+      meaning: binario = 1 minado y 0 no minado; porcentaje = porcentaje remanente (100 no minado, 0 minado).
+      effect: Con porcentaje un valor intermedio deja esa proporción del bloque (se reduce su tonelaje, las leyes no cambian).
+      values: binario o porcentaje
+    - key: comparacion.activo
+      title: Comparar con la categoría anterior
+      meaning: true = agrega la hoja Comparacion_Categ con el tonelaje anterior vs actual y la matriz de cambio de categoría.
+      values: true o false
+      aliases:
+      - comparacion
+      - categoria anterior
+    - key: comparacion.categoria_anterior
+      title: Columna de la categoría anterior
+      meaning: Columna del modelo con la categoría previa (1 Medido, 2 Indicado, 3 Inferido, 4 Potencial; otro valor = sin
+        categoría).
+      aliases:
+      - categ anterior
+    - key: valorizado
+      title: Modelo valorizado
+      meaning: 'false = el modelo no tiene NSR ni equivalente: el reporte no los incluye y el corte se aplica a la ley del
+        primer metal.'
+      values: true o false
+      aliases:
+      - valorizado
+    - key: ganancia.activo
+      title: Hoja de ganancia del plan
+      meaning: 'true = agrega la hoja Ganancia_Plan: ganancia de tonelaje por categoría (categoría nueva menos anterior)
+        y por dominio, y el ratio por metro perforado.'
+      values: true o false
+      aliases:
+      - ganancia
+      - ganancia del plan
+    - key: ganancia.resumen_plan
+      title: Resumen del plan
+      meaning: Ruta de Plan_Resumen.json que escribe el paso plan; de ahí sale la longitud total perforada para el ratio
+        por metro.
+      effect: Debe apuntar al archivo de la carpeta de salida del plan.
+      aliases:
+      - plan_resumen
+    - key: ganancia.longitud_manual
+      title: Longitud del plan manual
+      meaning: Longitud total del plan en metros si no hay Plan_Resumen.json. Vacío = se usa el resumen.
+      values: metros
+      aliases:
+      - longitud manual
+  esquema_bloques:
+    summary: 'Herramienta de solo lectura que deduce el esquema de la grilla (origen, extensión, tamaño de bloque, subbloque
+      y bearing) a partir de un CSV de modelo de bloques existente. Sirve para rellenar el esquema de conf_crear_mb.json.
+
+      '
+    when: Cuando tienes un modelo de bloques de otro software y quieres reproducir su grilla.
+    reads: El CSV del modelo con XC, YC, ZC, DX, DY, DZ
+    writes: Solo imprime el esquema; no modifica archivos
+    cautions:
+    - Con bloques cuadrados en planta y sin subbloques el bearing solo queda definido módulo 90.
+    - No detecta plunge ni dip.
+    aliases:
+    - esquema
+    - identificar esquema
+    - grilla del modelo

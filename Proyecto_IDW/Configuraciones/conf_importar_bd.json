@@ -1,0 +1,97 @@
+{
+    "__modulo__": "ImportarProyecto",
+    "__version__": "1.0",
+    "proyecto": "C:\\MiProyecto\\02_Resultados\\01_Database\\Database.db",
+    "carpeta_csv_salida": "C:\\MiProyecto\\02_Resultados\\01_Database",
+    "decimales": 4,
+    "excluir_sondajes_con_observaciones": true,
+    "origen": "sondajes",
+    "compositos": {
+        "archivo": "C:\\MiProyecto\\01_Data\\01_Database\\assay_comp.csv",
+        "nombre_tabla": "assay_comp",
+        "roles": {
+            "Sondaje": "Sondaje",
+            "Desde": "Desde",
+            "Hasta": "Hasta",
+            "length": "Incluir",
+            "MIDX": "Incluir",
+            "MIDY": "Incluir",
+            "MIDZ": "Incluir",
+            "TOPX": "Incluir",
+            "TOPY": "Incluir",
+            "TOPZ": "Incluir",
+            "BOTX": "Incluir",
+            "BOTY": "Incluir",
+            "BOTZ": "Incluir",
+            "CUPCT": "Incluir",
+            "CUPCT_ACOT": "Incluir",
+            "DOMCU": "Incluir",
+            "DOMCU_PCT": "Omitir"
+        },
+        "tipos": {
+            "length": "Numérico",
+            "MIDX": "Numérico",
+            "MIDY": "Numérico",
+            "MIDZ": "Numérico",
+            "TOPX": "Numérico",
+            "TOPY": "Numérico",
+            "TOPZ": "Numérico",
+            "BOTX": "Numérico",
+            "BOTY": "Numérico",
+            "BOTZ": "Numérico",
+            "CUPCT": "Numérico",
+            "CUPCT_ACOT": "Numérico",
+            "DOMCU": "Numérico"
+        },
+        "tipo": "Compósito",
+        "enteros": [
+            "DOMCU"
+        ]
+    },
+    "tablas": [
+        {
+            "tipo": "Collar",
+            "archivo": "C:\\MiProyecto\\01_Data\\01_Database\\ddh_collar.csv",
+            "nombre_tabla": "collar",
+            "roles": {
+                "ID": "Sondaje",
+                "ESTE": "Este",
+                "NORTE": "Norte",
+                "ELEVACION": "Cota",
+                "LONGITUD": "Profundidad"
+            },
+            "tipos": {}
+        },
+        {
+            "tipo": "Survey",
+            "archivo": "C:\\MiProyecto\\01_Data\\01_Database\\ddh_survey.csv",
+            "nombre_tabla": "survey",
+            "roles": {
+                "ID": "Sondaje",
+                "DEPTH": "Profundidad",
+                "AZIMUTH": "Azimut",
+                "DIP": "Dip"
+            },
+            "tipos": {}
+        },
+        {
+            "tipo": "Intervalo",
+            "archivo": "C:\\MiProyecto\\01_Data\\01_Database\\ddh_assay.csv",
+            "nombre_tabla": "assay",
+            "roles": {
+                "ID": "Sondaje",
+                "FROM": "Desde",
+                "TO": "Hasta",
+                "CUPCT": "Incluir",
+                "DOMINIO_ANTIGUO": "Incluir"
+            },
+            "tipos": {
+                "CUPCT": "Numérico",
+                "DOMINIO_ANTIGUO": "Numérico"
+            },
+            "enteros": [
+                "DOMINIO_ANTIGUO"
+            ]
+        }
+    ]
+}

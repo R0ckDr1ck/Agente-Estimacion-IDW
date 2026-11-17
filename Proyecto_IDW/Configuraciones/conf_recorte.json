@@ -1,0 +1,16 @@
+{
+    "__modulo__": "RecorteModelo",
+    "__version__": "1.0",
+    "activo": true,
+    "modelo": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb.csv",
+    "salida": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_recortado.csv",
+    "solido": {
+        "ruta": "C:\\MiProyecto\\01_Data\\05_Objetivo\\OXIDOS.obj",
+        "tolerancia_pared": 0.0,
+        "campos": {
+            "x": "XC",
+            "y": "YC",
+            "z": "ZC"
+        }
+    }
+}

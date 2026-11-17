@@ -1,0 +1,356 @@
+CONFIGURACIONES DEL PROYECTO 06_Proyecto_v6
+===========================================
+
+Nota: el detalle de cada configuracion (mas abajo) viene de la v3; los valores propios de la v6 estan en los
+conf_*.json. Aqui solo se documentan los cambios de la v6 y, mas abajo, los de la v5 y la v4.
+
+Cambios de la v6 respecto a la v5
+    1. Modelo de bloques: identificar el esquema de la grilla desde un CSV de bloques. En la pestana "Modelo de
+       bloques", grupo "Identificar el esquema desde un CSV de bloques": se indica el CSV (vacio = el modelo de
+       bloques existente de "Rutas del flujo") y los nombres de sus columnas (XC, YC, ZC, DX, DY, DZ; si se dejan
+       los nombres por defecto tambien se reconocen sinonimos como XCENTRE o XINC) y el boton "Identificar esquema
+       desde el CSV" rellena origen X/Y/Z, extension X/Y/Z, tamano de bloque, subbloque y bearing del grupo
+       "Esquema de la grilla". No guarda hasta pulsar "Guardar todo". conf_crear_mb.json guarda la eleccion en la
+       clave "esquema_csv" ({"archivo", "col_xc", "col_yc", "col_zc", "col_dx", "col_dy", "col_dz"}); el motor
+       de creacion del modelo ignora esa clave.
+       Como se identifica (Herramientas\EsquemaDesdeBloques.py, tambien se usa por consola:
+       python EsquemaDesdeBloques.py modelo.csv):
+         - Bloque padre = mayor DX/DY/DZ; subbloque = menor (iguales si no hay subbloques).
+         - Extension = LARGO en metros del modelo en cada eje (n.o de bloques padre x tamano), como pide
+           EsquemaGrilla. OJO: no es el numero de bloques.
+         - Bearing = azimut del eje X local (90 = sin rotacion). Se mide con la direccion de los bloques
+           vecinos del tamano padre y se afina con la coherencia de las esquinas con la malla del subbloque; esa
+           misma coherencia, con los DX/DY del CSV, decide si X e Y van intercambiados.
+         - Origen = esquina minima del modelo llevada a la malla de bloques padre.
+       Limites: con bloques cuadrados en planta y sin subbloques el bearing solo queda definido modulo 90 (se
+       informa el menor y se avisa). Si faltan bloques en la esquina minima (modelo recortado) el origen es la
+       esquina de malla mas cercana por dentro. No detecta Plunge ni Dip. Si menos del 99.9 % de los bloques cae
+       en la malla detectada se avisa (rotacion fuera de plano, otra convencion de ejes, bloques irregulares).
+       Verificado: reproduce exactamente el esquema de modelos generados con rotacion y subbloques, y el esquema
+       detectado regenera los mismos bloques.
+
+Cambios de la v5 respecto a la v4
+    1. Importar BD desde compositos. conf_importar_bd.json, claves "origen" ("sondajes" = Collar/Survey/Assay
+       como siempre, "compositos" = solo un CSV de compositos ya codificado y compositado) y "compositos":
+       {"archivo", "nombre_tabla" (assay_comp), "roles", "tipos", "enteros"}. La base queda sin Collar ni Survey
+       (la estimacion no los necesita) y con una tabla de tipo compósito. Roles obligatorios: Sondaje, Desde y
+       Hasta (por el JSON o por sinonimo); el resto de las columnas se incluye tal cual, con su nombre original
+       y sin redondear (los CSV de salida si usan "decimales"). Los tramos sin sondaje o sin Desde/Hasta
+       numericos se descartan avisando en el log. Con este origen EjecutarFlujo omite por defecto los pasos
+       codificar, acotar y compositar (siguen disponibles con --pasos) y el CSV de entrada nunca se
+       sobrescribe al exportar. Interfaz: pestana Importar BD, grupo "Origen de los datos" (los pasos omitidos
+       quedan desmarcados en la pestana Ejecutar). Motor: ImportarBD.py (importar_compositos),
+       Proyecto\ProyectoSondajes.py (guardar_composito acepta "tipos"), EjecutarFlujo.py (pasos_omitidos).
+       Nota: si el CSV viene exportado con 3 decimales (como el de ExportarBD) las coordenadas y leyes llevan
+       ese redondeo (maximo 0.0005 de diferencia frente a la base original; d3h cambia ~0.0006 m).
+    2. Reporte: comparacion con la categoria anterior. conf_reporte.json, clave "comparacion": {"activo",
+       "categoria_anterior"} (p. ej. "categ-anterior": 1 Medido, 2 Indicado, 3 Inferido, 4 Potencial; cualquier
+       otro valor = sin categoria). Agrega al Excel la hoja "Comparacion_Categ" (y su CSV): tonelaje anterior vs
+       actual, diferencia y variacion % para Medido, Indicado, M&I, Inferido, Potencial y total, la matriz de
+       cambio de categoria (filas = anterior, columnas = actual, incluye "Sin categoria") y lo mismo por
+       dominio. Usa los mismos bloques y filtros que el resumen (solido, variable de minado con su tonelaje
+       parcial y cut-off); los bloques sin categoria en ambas columnas no entran. Las hojas Resumen y
+       Resumen_Potencial no cambian. Interfaz: grupo "Comparar con la categoria anterior" de la pestana
+       Reporte. Motor: Herramientas\ReporteRecursos.py (_construir_comparacion, _hoja_comparacion).
+    3. Los JSON de la v5 se reapuntaron de 04_Proyecto_v4 a 05_Proyecto_v5 para que ningun paso escriba en la v4.
+
+CONFIGURACIONES DEL PROYECTO 04_Proyecto_v4
+===========================================
+
+Cambios de la v4 respecto a la v3
+    1. Estimacion IDW, columna "Valor dominio" de la tabla de pasadas: acepta uno o varios dominios separados
+       por coma (o punto y coma): "21" o "21, 22, 23". Las muestras de todos esos dominios se usan juntas en
+       la pasada (los numeros casan por valor, el resto como texto). Un solo valor funciona como antes y
+       vacio = sin filtro. La "Condicion" sigue siendo la que elige los bloques a estimar (p. ej.
+       "cu_id eq -99 and (domcu eq 21 or domcu eq 22 or domcu eq 23)"). Motor:
+       Herramientas\EstimacionIDW.py (lista_dominios, PasadaIDW.dominios, _muestras_pasada).
+    2. Valorizacion: la densidad fija es opcional. conf_valorizacion.json, clave "asignar_densidad"
+       (true = asigna "densidad" a todos los bloques en la columna "col_densidad", como antes; false = no
+       escribe nada y respeta la densidad variable que ya trae el modelo). Con false, "col_densidad" debe
+       ser la columna del modelo con la densidad (si falta, avisa) y es la misma que el reporte usa en
+       "coboDensidad". Interfaz: casilla "Asignar una densidad fija a todos los bloques" (deshabilita el
+       campo Densidad). Por defecto true (los JSON sin la clave se comportan como antes).
+    3. Reporte: variable de minado opcional. conf_reporte.json, clave "minado": {"activo", "variable",
+       "tipo"}. tipo "binario": 1 = minado, 0 = no minado. tipo "porcentaje": porcentaje remanente, 100 = no
+       minado, 0 = minado. Los bloques totalmente minados no se reportan; en "porcentaje" un valor
+       intermedio deja esa proporcion del bloque (se reduce su tonelaje, las leyes no cambian). Valores
+       vacios cuentan como no minado (avisa). El resumen del reporte indica cuantos bloques se excluyeron.
+       Se aplica antes del cut-off y junto con la opcion de reportar dentro de un solido. Interfaz: grupo
+       "Variable de minado" de la pestana Reporte. Motor: Herramientas\ReporteRecursos.py
+       (fraccion_remanente) y GenerarReporte.py.
+    4. Correcciones tras la primera corrida:
+       - Distancia a 3 sondajes (d3h, EstimarIDW.preparar_d3h): ya no hereda el "Valor dominio" ni la
+         "Condicion" de la primera pasada. Antes, con varios dominios, quedaba restringida al dominio de esa
+         pasada (p. ej. 21), salia en 0 bloques y la categorizacion dejaba todo en -99. Ahora se calcula en
+         todo el modelo con todo el compósito.
+       - d3h hereda Bearing/Plunge/Dip (fijos o variables del modelo, p. ej. lva_b/lva_p/lva_d) de la primera
+         pasada del elemento principal. Excepcion: con radios iguales (esfera, p. ej. 200/200/200) la
+         orientacion no cambia el resultado y se omite, porque con variables por bloque el motor arma un
+         arbol de busqueda por cada orientacion distinta (horas). Con radios distintos se hereda completa.
+       - Categorizacion: si la columna de distancia no tiene ningun valor > 0, se detiene con un mensaje claro
+         (antes categorizaba 0 bloques sin avisar).
+       - Reporte: si ningun bloque tiene categoria 1 a 4, lo dice (antes salia un KeyError engañoso con la
+         columna de densidad).
+       - Resumen de la estimacion: el total "N de M bloques estimados" cuenta los bloques con flag > 0; antes
+         sumaba las pasadas y, con flags repetidos entre dominios, superaba el total de bloques. Cada pasada
+         sigue mostrando el conteo de su flag.
+
+Cambios de la v3 respecto a la v2
+    1. Tablas con importar/exportar CSV (Interfaz): Codificacion (solidos), Acotamiento (topes), Modelo de
+       bloques (variables, solidos, excepciones), Estimacion IDW (pasadas), Valorizacion (metales) y
+       Reporte (metales). Cada tabla tiene los botones "Importar CSV..." y "Exportar CSV...", y la barra
+       superior tiene "Exportar tablas a CSV" / "Importar tablas desde CSV" para todas a la vez.
+       Carpeta de los CSV: 01_Data\04_Parametros_Entrada  (archivos: codificacion_solidos.csv,
+       acotamiento_topes.csv, modelo_bloques_variables.csv, modelo_bloques_solidos.csv,
+       modelo_bloques_excepciones.csv, estimacion_pasadas.csv, valorizacion_metales.csv,
+       reporte_metales.csv). Formato: UTF-8 con BOM, separador coma (al importar tambien se aceptan ;
+       y tabulacion); la importacion casa las columnas por su titulo (sin distinguir mayusculas ni
+       tildes), deja vacias las que el CSV no trae e ignora las que sobran. Los CSV no alimentan el
+       flujo por si solos: hay que importarlos en la interfaz y pulsar "Guardar todo".
+    2. Estimacion IDW: en la tabla de pasadas, Bearing, Plunge y Dip aceptan un numero (igual para todos
+       los bloques) o el nombre de una columna del modelo de bloques (aqui lva_b, lva_p, lva_d), que da el
+       angulo de cada bloque. Se usa un modelo de bloques EXISTENTE (no se crea):
+       01_Data\02_Modelo-Bloques\mb_trujillo.csv. En conf_proyecto.json: "crear_modelo_bloques": false
+       (el paso "modelo" se omite) y "modelo_bloques_existente". Motor: Herramientas\EstimacionIDW.py
+       (PasadaIDW.var_bearing / var_plunge / var_dip) y EstimarIDW.py.
+    3. Reporte: opcion de reportar solo dentro de un solido (clave "solido" de conf_reporte.json):
+       01_Data\05_Objetivo\40.obj. Motor: GenerarReporte.py (filtrar_en_solido).
+
+Uso del proyecto
+    Interfaz de parametros : Flujo_Estimacion\InterfazParametros.py  (lanzador: Iniciar_Interfaz.bat)
+                             Edita todos los conf_*.json de esta carpeta (una pestana por archivo, mas
+                             "Rutas del flujo" y "Ejecutar").
+    Flujo completo         : Flujo_Estimacion\EjecutarFlujo.py  (lanzador: Ejecutar_Flujo.bat)
+                             Corre los pasos en orden segun estos JSON: importar, codificar, acotar,
+                             compositar, exportar, [modelo], estimar, valorizar, categorizar, reporte.
+                             El paso "modelo" solo se ejecuta si conf_proyecto.json tiene
+                             "crear_modelo_bloques": true (o se pide con --pasos modelo).
+                             Admite --pasos, --desde, --hasta, --config-dir, --listar.
+    Entorno                : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_proyecto.json
+    Herramienta : Flujo_Estimacion\InterfazParametros.py (pestana "Rutas del flujo") y EjecutarFlujo.py
+                  (carpeta del log y paso "modelo").
+    Formato     : "__modulo__": "Proyecto" (archivo propio del proyecto; no existe en YupAI).
+    Contenido   : carpeta del proyecto, base de datos .db, carpetas de CSV de la base, del modelo de
+                  bloques y del reporte, nombre base del modelo (mb_trujillo), crear_modelo_bloques (false
+                  en la v3) y modelo_bloques_existente. El boton "Aplicar estas rutas a todas las
+                  pestanas" de la interfaz las propaga a los demas JSON (base de datos, CSV de salida y la
+                  cadena modelo -> estimado -> valorizado -> categorizado -> reporte; la estimacion lee el
+                  modelo existente cuando no se crea).
+
+conf_importar_bd.json
+    Herramienta : Flujo_Estimacion\ImportarBD.py  (motor sin Qt del importador de YupAI:
+                  Proyecto\ProyectoSondajes.py + Proyecto\ValidadorSondajes.py; equivale al
+                  formulario YupAI_Estimacion\Herramientas\FmImportarProyecto.py) y
+                  Flujo_Estimacion\ExportarBD.py (paso "exportar": CSV de todas las tablas de la base
+                  despues de codificar, acotar y compositar; usa proyecto, carpeta_csv_salida y decimales).
+    Formato     : mismo "__modulo__": "ImportarProyecto" que usa el formulario de YupAI.
+    Contenido   : por cada CSV (Collar, Survey, Assay): archivo, nombre de tabla, rol de cada
+                  columna (campo del CSV en MAYUSCULAS -> rol YupAI) y tipo de dato de las
+                  columnas 'Incluir'. Ver "Campos relacionados" abajo.
+
+conf_codificar.json
+    Herramienta : Flujo_Estimacion\CodificarSondajes.py  (motor sin Qt de YupAI:
+                  Herramientas\CodificadorSondajes.py + CodificadorEspacialV2.py + Desurvey*.py;
+                  equivale al formulario YupAI_Estimacion\Herramientas\FmCodificacionSondajes.py)
+    Formato     : "__modulo__": "CodificacionSondajes" (copia de 91_Flujo_Estimacion_Trujillo\_conf_codificar.json
+                  con rutas ajustadas a 03_Proyecto_v3).
+    Contenido   : base .db, tabla (assay), campo (ENVAU), valor por defecto de no codificados (-99),
+                  tolerancia de pared, solidos (.obj, valor, prioridad) y metodo de desurvey
+                  (Tangente Vulcan, informativo: el codificador lo usa fijo).
+                  Tabla CSV: codificacion_solidos.csv.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_acotamiento.json
+    Herramienta : Flujo_Estimacion\AcotarSondajes.py  (motor sin Qt de YupAI:
+                  Herramientas\Acotamiento.py + EstadisticaCodificacion.py;
+                  equivale al formulario YupAI_Estimacion\Herramientas\FmAcotamiento.py)
+    Formato     : "__modulo__": "Acotamiento" (copia de 91_Flujo_Estimacion_Trujillo\_conf_acotamiento.json
+                  con la ruta de la base ajustada a 03_Proyecto_v3).
+    Contenido   : base .db, tabla (assay), campo de dominio (ENVAU), variable (AUPPM), valores nulos (-99),
+                  tratamiento de BDL (mitad) y topes por variable y dominio (dominio 40: tope 9.0,
+                  metodo percentil 98). Genera la columna AUPPM_ACOT y guarda los topes en la tabla
+                  _acotamiento de la base. Tabla CSV: acotamiento_topes.csv.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_comp.json
+    Herramienta : Flujo_Estimacion\CompositarSondajes.py  (motor sin Qt de YupAI:
+                  Herramientas\Compositacion.py + Desurvey*.py;
+                  equivale al formulario YupAI_Estimacion\Herramientas\FmCompositacion.py)
+    Formato     : "__modulo__": "Compositacion" (copia de 91_Flujo_Estimacion_Trujillo\_conf_comp.json
+                  con la ruta de la base ajustada a 03_Proyecto_v3).
+    Contenido   : base .db, tabla de assay (assay), tabla de composito a generar (assay_comp), metodo
+                  Run Length de 2.0 m con tolerancia 1.0, faltantes -99 (Ignorar Tramo), huecos no
+                  registrados (Ignorar Tramo), corte por geologia con ENVAU, campos numericos
+                  (AUPPM, AUPPM_ACOT) y categoricos (ENVAU). Solo se compositan sondajes estimables;
+                  las coordenadas MID/TOP/BOT usan desurvey Tangente Vulcan.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_crear_mb.json
+    Herramienta : Flujo_Estimacion\CrearModeloBloques.py  (motor sin Qt de YupAI:
+                  Herramientas\ModeloBloques.py + CodificadorSondajes.py + CodificadorEspacialV2.py +
+                  EstimacionIDW.py (traducir_condicion); equivale al formulario
+                  YupAI_Estimacion\Herramientas\FmModeloBloques.py)
+    Formato     : "__modulo__": "ModeloBloques" (copia de 91_Flujo_Estimacion_Trujillo\_conf_crear_mb.json
+                  con la ruta del solido y de la salida ajustadas a 03_Proyecto_v3).
+    Contenido   : esquema de la grilla (origen, extension, bloque padre 5x5x5, bearing 37,
+                  subbloque 1.25), variables (au_idw Float, envau Integer, defecto -99), solido
+                  01_Data\03_Dominio\40.obj (envau=40), excepcion "envau eq -99" y tolerancia de pared 0.
+                  Salida: 02_Resultados\03_Modelo_Bloques\mb_trujillo.csv (este modelo no se guarda en
+                  la base .db).
+                  NO SE EJECUTA en la v3 (crear_modelo_bloques = false): se conserva por si se vuelve a
+                  crear el modelo. Tablas CSV: modelo_bloques_variables.csv, modelo_bloques_solidos.csv,
+                  modelo_bloques_excepciones.csv.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_estimacion.json
+    Herramienta : Flujo_Estimacion\EstimarIDW.py  (motor sin Qt de YupAI: Herramientas\EstimacionIDW.py;
+                  equivale al formulario YupAI_Estimacion\Herramientas\FmEstimacionIDW.py)
+    Formato     : "__modulo__": "EstimacionIDW" (copia de 91_Flujo_Estimacion_Trujillo\_conf_estimacion.json
+                  con las rutas ajustadas a 03_Proyecto_v3).
+    Contenido   : modelo de bloques EXISTENTE de entrada (01_Data\02_Modelo-Bloques\mb_trujillo.csv, con las
+                  columnas lva_b, lva_p, lva_d y envau), base .db (compositos), campos de coordenadas y de
+                  bloque, 4 pasadas IDW de au_idw sobre assay_comp (AUPPM_ACOT, peso length, dominio
+                  ENVAU=40, potencia 3, radios 10/20/40/120) con Bearing = lva_b, Plunge = lva_p y
+                  Dip = lva_d (variables del modelo; tambien se puede escribir un numero, p. ej. 180 / 90 /
+                  -65), estimacion en bloque padre (origen, 5x5x5, bearing 37) y distancia a 3 sondajes
+                  (d3h, radios 500, sin rotacion). Salida:
+                  02_Resultados\03_Modelo_Bloques\mb_trujillo_estimado.csv (no se guarda en la .db).
+                  Con orientaciones variables el motor agrupa los bloques por cada combinacion distinta
+                  de angulos (un solo grupo si son constantes, como aqui); en bloque padre toma el angulo
+                  del primer sub-bloque de cada padre. Tabla CSV: estimacion_pasadas.csv.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_valorizacion.json
+    Herramienta : Flujo_Estimacion\ValorizarModelo.py  (motor sin Qt de YupAI: Herramientas\Valorizacion.py;
+                  equivale al formulario YupAI_Estimacion\Herramientas\FmValorizacion.py)
+    Formato     : "__modulo__": "Valorizacion" (copia de 91_Flujo_Estimacion_Trujillo\_conf_valorizacion.json
+                  con las rutas del modelo y de la salida ajustadas a 03_Proyecto_v3).
+    Contenido   : modelo estimado de entrada (02_Resultados\03_Modelo_Bloques\mb_trujillo_estimado.csv),
+                  densidad 2.7 (columna Densidad), metal au (columna au_idw, recuperacion "1" ->
+                  pct_rec_au), NSR "1" (columna nsr) y equivalente "au_idw" (columna equiv). Salida:
+                  02_Resultados\03_Modelo_Bloques\mb_trujillo_valorizado.csv (no se guarda en la .db).
+                  Tabla CSV: valorizacion_metales.csv.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_categ.json
+    Herramienta : Flujo_Estimacion\CategorizarModelo.py  (motor sin Qt de YupAI:
+                  Herramientas\Categorizacion.py; equivale al formulario
+                  YupAI_Estimacion\Herramientas\FmCategorizacion.py)
+    Formato     : "__modulo__": "Categorizacion" (copia de 91_Flujo_Estimacion_Trujillo\_conf_categ.json
+                  con las rutas del modelo y de la salida ajustadas a 03_Proyecto_v3).
+    Contenido   : modelo valorizado de entrada (02_Resultados\03_Modelo_Bloques\mb_trujillo_valorizado.csv),
+                  metodo IDW, campos (distancia d3h_avgdist_anisot, nholes au_idw_nholes, pasada
+                  au_idw_pass, salida categ) y distancias de corte Medido 15, Indicado 30, Inferido 60,
+                  Potencial 1000. Salida: 02_Resultados\03_Modelo_Bloques\mb_trujillo_categorizado.csv
+                  (no se guarda en la .db).
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+conf_reporte.json
+    Herramienta : Flujo_Estimacion\GenerarReporte.py  (motor sin Qt de YupAI:
+                  Herramientas\ReporteRecursos.py + Util\Util.py (solo Util.hora); equivale al formulario
+                  YupAI_Estimacion\Herramientas\FmReporteRecursos.py)
+    Formato     : "__modulo__": "ReporteRecursos" (copia de 91_Flujo_Estimacion_Trujillo\_conf_reporte.json
+                  con las rutas ajustadas a 03_Proyecto_v3, mas la clave propia "solido").
+    Contenido   : modelo categorizado de entrada (02_Resultados\03_Modelo_Bloques\mb_trujillo_categorizado.csv),
+                  columnas (agrupacion envau, categoria categ, densidad Densidad, DX/DY/DZ, nsr, equiv),
+                  corte sobre equiv >= 0, metal principal Au (ppm), metal au_idw (factor 1) y fecha del
+                  reporte 2026-07-14. Salida: 02_Resultados\04_Reporte\Recursos_BVN_Jul26_No_Env_<fecha-hora>.xlsx
+                  (hojas Resumen y Resumen_Potencial) mas un CSV por hoja.
+                  Clave "solido" (v3): activo, ruta (01_Data\05_Objetivo\40.obj), tolerancia_pared y
+                  campos x/y/z (centroide del bloque: XC, YC, ZC). Con activo = true solo se reportan los
+                  bloques cuyo centroide cae dentro del .obj (Fast Winding Number, igual que la
+                  codificacion) y el archivo lleva el sufijo _Sol_<nombre del solido>. Los bloques
+                  parcialmente dentro (centroide fuera) no se incluyen. Tabla CSV: reporte_metales.csv.
+    Entorno     : D:\VS_Code\00_Settings\venv_312\Scripts\python.exe
+
+Campos relacionados (CSV de origen -> campo YupAI en la base .db)
+-----------------------------------------------------------------
+Collar : HoleID->Sondaje  East->Este  North->Norte  RL->Cota  Depth->Profundidad
+         Type->Type (Incluir, texto)  Year->Year (Incluir, numerico entero)
+Survey : HoleID->Sondaje  Depth->Profundidad  Azimuth->Azimut  Dip->Dip
+Assay  : HoleID->Sondaje  From->Desde  To->Hasta
+         Sample (texto), Length, Auppm, Agppm, veta, AUAC, AGAC, ENVAU, ENVAG (Incluir)
+
+Los nombres de campo del CSV ya coinciden con los sinonimos que reconoce el importador de YupAI
+(HOLEID, EAST, NORTH, RL, DEPTH, AZIMUTH, DIP, FROM, TO); el JSON los deja explicitos. Los campos
+adicionales (Type, Year, Sample, leyes, etc.) no tienen rol canonico: en YupAI hay que marcarlos
+'Incluir' (por defecto se omiten), y eso es lo que fija este JSON.
+
+
+==================================================================================================
+v7 - EVALUACION DE UN PLAN DE SONDAJES
+==================================================================================================
+Flujo (EjecutarFlujo.py): importar -> [plan] -> exportar -> estimar -> categorizar -> reporte, con codificar/acotar/compositar
+omitidos (origen "compositos"), modelo omitido (modelo existente) y valorizar omitido (valorizar_modelo = false).
+
+conf_plan.json
+    Herramienta : Flujo_Estimacion\PlanSondajes.py (reusa CodificarSondajes.ejecutar y CompositarSondajes.ejecutar)
+    Formato     : "__modulo__": "PlanSondajes"
+    Contenido   : activo (false = el paso se omite); proyecto (Database.db del flujo) y tabla_composito (assay_comp);
+                  collar {archivo, col_sondaje, col_este, col_norte, col_cota, col_longitud} y
+                  survey {archivo, col_sondaje, col_profundidad, col_azimut, col_dip} (CSV del plan; dip negativo
+                  hacia abajo); muestreo.ancho (0.5 m); ley {modo: modelo|dominio|constante, columna_modelo, constante};
+                  modelo {archivo, xc, yc, zc, dx, dy, dz} (modelo existente para la ley provisional); salida (carpeta);
+                  conservar_temporal (Plan_Temporal.db).
+    Pasos       : 1) assay temporal: una muestra de 'ancho' m cada vez desde 0 hasta la longitud del collar (la ultima se
+                  acorta); 2) base temporal Plan_Temporal.db con collar/survey/assay; 3) codificacion con conf_codificar.json
+                  (solidos, campo, valor por defecto, tolerancia); 4) ley provisional para cada campo numerico de
+                  conf_comp.json (modelo: ley del bloque que contiene la muestra y, si no esta estimado o cae fuera del
+                  modelo, ley media del dominio de los composito existentes, ponderada por longitud; dominio: solo la media;
+                  constante); 5) compositacion con conf_comp.json; 6) los composito del plan se agregan a la tabla
+                  assay_comp de Database.db (mismas columnas y tipos que la tabla; columnas que la tabla no tiene, como
+                  DOMCU_PCT, no se agregan). Al repetir el paso se reemplazan los composito del plan anterior (la lista
+                  queda en el metadato 'plan_sondajes' de la base); si un nombre de sondaje del plan ya existe en los
+                  composito reales, se detiene con un error. Si la base tiene Collar y Survey (origen "sondajes") tambien se
+                  agregan los del plan. No se modifican los CSV de 01_Data.
+    Salidas     : <salida>\Plan_Assay_Temporal.csv (muestras con XYZ medio, dominio, leyes y ORIGEN_LEY),
+                  Plan_Assay_Comp.csv (composito del plan), Plan_Resumen.json (n sondajes, longitud total, muestras,
+                  composito, origen de la ley; lo lee el reporte) y Plan_Temporal.db.
+    Por que ley provisional: la categorizacion usa el numero de sondajes y la pasada de la estimacion de la ley; un compósito
+                  sin ley no participa y el plan no cambiaria la categoria. La ley provisional (la del propio modelo) casi
+                  no cambia las leyes estimadas: la ganancia refleja la cobertura de sondajes.
+
+conf_estimacion.json  (clave nueva "reiniciar")
+    reiniciar {activo: true, conservar_anterior: true}: el modelo existente puede traer ya estimada la variable (cu_idw) y las
+    pasadas solo estiman los bloques con la variable en -99; con activo = true se reinician la variable y sus columnas de
+    reporte (y las del d3h) a "no estimado" y, con conservar_anterior, la ley previa queda en <variable>_anterior.
+    En v7 la categoria anterior (categ) pasa intacta del modelo existente a los CSV de salida.
+
+conf_proyecto.json  (clave nueva "valorizar_modelo")
+    false: el paso valorizar se omite. conf_categ.json toma 02_Resultados\03_Modelo_Bloques\mb_smeb_estimado.csv.
+
+conf_categ.json (v7): campos.col_categoria = "categ_nuevo" (no pisa la categoria anterior "categ").
+    piso {activo: true, columna_anterior: "categ"}: la categoria nueva no puede ser peor que la anterior (orden Medido >
+    Indicado > Inferido > Potencial; si la nueva no existe se conserva la anterior). Motivo: la estimacion multipasada se
+    detiene en la primera pasada que reune las muestras minimas, no los sondajes minimos; un sondaje nuevo puede dejar un
+    bloque estimado con 1-2 sondajes en una pasada chica y la categorizacion (que usa el numero de sondajes) lo degrada.
+    Con el piso se agrega la columna categ_nuevo_sin_piso (resultado sin piso). activo = false o sin la clave: sin piso.
+    Si el modelo no trae la columna anterior y el piso esta activo, se detiene con un mensaje claro.
+
+conf_reporte.json (v7)
+    valorizado: false -> sin columnas NSR / equivalente / Onz Equiv; el cut-off se aplica a la ley del primer metal.
+    columnas.coboCategoria = "categ_nuevo"; comparacion {activo: true, categoria_anterior: "categ"}.
+    ganancia {activo, resumen_plan, longitud_manual}: agrega la hoja Ganancia_Plan. Ganancia = tonelaje de categ_nuevo -
+    tonelaje de categ (mismos bloques y filtros del resumen: solido, variable de minado, cut-off) por categoria (Medido,
+    Indicado, M&I, Inferido, M+I+Inferido, Potencial) y por dominio. Ratio de conversion = ganancia / longitud total del plan
+    (t por metro perforado); la longitud sale de Plan_Resumen.json o de longitud_manual. Si el modelo trae <ley>_anterior
+    se agregan la ley media y el metal fino (anterior, actual, ganancia y ratio por metro).
+
+Rutas de entrada: en v7 los JSON apuntan a las entradas de 07_Proyecto_v7\01_Data (antes quedaban rutas de v5).
+
+
+conf_recorte.json  (v8)
+    Herramienta : Flujo_Estimacion\RecortarModelo.py  (Herramientas\FiltroSolido.py, la misma prueba de punto en sólido del reporte)
+    Formato     : "__modulo__": "RecorteModelo"
+    Contenido   : activo, modelo (CSV completo de entrada), salida (CSV recortado) y solido {ruta, tolerancia_pared,
+                  campos {x, y, z}} (centroide del bloque: XC, YC, ZC). Se queda el bloque cuyo centroide cae dentro del sólido.
+    En el flujo  : paso 8 "recortar", entre "modelo" y "estimar"; se omite si activo = false o si no existe el JSON. Con el
+                  recorte activo conf_estimacion.json "modelo" debe ser la "salida" de conf_recorte.json (la interfaz lo
+                  enlaza y el flujo avisa si no coincide). El plan de sondajes (conf_plan.json modelo.archivo) sigue leyendo
+                  el modelo completo para la ley provisional.
+    Seguridad   : "salida" no puede ser el mismo archivo que "modelo".
+
+Interfaz (v8): las columnas de un CSV se editan en una tabla «Campo → Columna del CSV» con desplegables (columnas del
+    archivo), estado por fila y botón «Leer columnas del CSV». Los JSON no cambian de formato.

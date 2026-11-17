@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+.streamlit/secrets.toml
+
+# estado local del agente
+runs/
+plantillas_generadas/
+*.bak_*
+python_local.txt
+config/workspace.json
+
+# datos y resultados de ejemplo (pesados y de tu proyecto): no se suben; crea tus carpetas con `python -m agente init`
+Proyecto_IDW/01_Data/
+Proyecto_IDW/02_Resultados/
+Proyecto_IDW/Configuraciones/_respaldo_agente/
+*.db

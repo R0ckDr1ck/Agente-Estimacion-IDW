@@ -1,0 +1,7 @@
+{
+    "__modulo__": "Limpieza",
+    "entrada": "data/ventas_crudas.csv",
+    "salida": "data/ventas_limpias.csv",
+    "columna_valor": "monto",
+    "umbral_minimo": 0
+}

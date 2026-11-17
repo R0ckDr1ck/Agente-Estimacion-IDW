@@ -1,0 +1,961 @@
+# =============================================================================================
+#  CATÁLOGO DE HERRAMIENTAS · Proyecto_IDW (v2: herramientas dentro de Proyecto_Agente_v2/Proyecto_IDW) (flujo de estimación IDW)
+#  Derivado de Flujo_Estimacion/EjecutarFlujo.py y Configuraciones/Configuraciones_Herramientas.txt.
+#
+#  Para AGREGAR una herramienta: añade una entrada en `tools:` (y, si necesita plantillas de datos,
+#  en `file_templates:`). No hay que tocar el código del agente.
+#
+#  Convenciones
+#   - Rutas de scripts: relativas a la raíz del proyecto (idw_root).
+#   - key:  ruta JSON dentro del conf_*.json  ('a.b', 'lista[0].x', 'lista[*].x').
+#   - outputs   = lo que la herramienta CREA  -> el agente infiere dependencias (quién produce lo que otro lee).
+#   - modifies  = lo que modifica en el sitio (p. ej. la base .db); no crea dependencias.
+#   - skip_when = el paso se omite del flujo si ALGUNA condición se cumple (igual que EjecutarFlujo.py).
+# =============================================================================================
+version: 1
+description: Flujo de estimación IDW, evaluación de planes de sondaje y utilidades de modelo de bloques
+config_dir: Configuraciones
+
+# ---------------------------------------------------------------------------------------------
+#  Plantillas de archivos de DATOS (se generan en plantillas_generadas/ cuando falta el archivo)
+# ---------------------------------------------------------------------------------------------
+file_templates:
+  ddh_collar:
+    title: Collares de sondajes
+    folder: 01_Database
+    example_file: 01_Database/ddh_collar.csv
+    description: Un registro por sondaje, con su posición (collar) y su longitud. Se usa cuando conf_importar_bd.json tiene origen «sondajes».
+    columns:
+      - {name: id, example: DDH-001, description: Nombre único del sondaje}
+      - {name: este, example: 361055.9, description: Coordenada Este del collar (m)}
+      - {name: norte, example: 8811061.9, description: Coordenada Norte del collar (m)}
+      - {name: elevacion, example: 4403.37, description: Cota del collar (m)}
+      - {name: longitud, example: 183.6, description: Longitud total del sondaje (m)}
+    notes: ["conf_importar_bd.json casa estas columnas por nombre (sin distinguir mayúsculas): ID→Sondaje, ESTE→Este, NORTE→Norte, ELEVACION→Cota, LONGITUD→Profundidad.",
+            "Si usas otros nombres de columna, cámbialos también en la sección «tablas» de conf_importar_bd.json."]
+  ddh_survey:
+    title: Survey (orientación) de sondajes
+    folder: 01_Database
+    example_file: 01_Database/ddh_survey.csv
+    description: Mediciones de orientación a lo largo de cada sondaje (al menos un registro por sondaje, con depth = 0).
+    columns:
+      - {name: id, example: DDH-001, description: Nombre del sondaje (igual que en el collar)}
+      - {name: depth, example: 0, description: Profundidad del punto de medición (m)}
+      - {name: azimuth, example: 270, description: "Azimut en grados (0-360)"}
+      - {name: dip, example: -70, description: Inclinación en grados (negativa = hacia abajo)}
+    notes: ["Con un solo registro por sondaje (depth = 0) la orientación se mantiene constante a lo largo del sondaje."]
+  ddh_assay:
+    title: Ensayos (intervalos) de sondajes
+    folder: 01_Database
+    example_file: 01_Database/ddh_assay.csv
+    description: Un registro por intervalo de muestra, con su ley y el dominio antiguo. Agrega una columna por cada variable que quieras llevar.
+    columns:
+      - {name: id, example: DDH-001, description: Nombre del sondaje}
+      - {name: from, example: 0, description: Profundidad de inicio del intervalo (m)}
+      - {name: to, example: 2, description: Profundidad de fin del intervalo (m)}
+      - {name: cupct, example: 0.45, description: Ley de cobre (%)}
+      - {name: dominio_antiguo, example: 31, description: Código del dominio geológico anterior}
+    notes: ["Las columnas de ley y dominio deben figurar en conf_importar_bd.json (sección «tablas», roles «Incluir»)."]
+  composites:
+    title: Compósitos (ya codificados y compositados)
+    folder: 01_Database
+    example_file: 01_Database/assay_comp.csv
+    n_rows: 2
+    description: >
+      Compósitos con su posición y dominio. Se usa cuando conf_importar_bd.json tiene origen «compositos»
+      (los pasos codificar, acotar y compositar se omiten).
+    columns:
+      - {name: Sondaje, example: DDH-001, description: Nombre del sondaje (rol obligatorio)}
+      - {name: Desde, example: 100.0, description: Inicio del compósito (m) (rol obligatorio)}
+      - {name: Hasta, example: 102.0, description: Fin del compósito (m) (rol obligatorio)}
+      - {name: length, example: 2.0, description: Longitud del compósito (m)}
+      - {name: MIDX, example: 361021.356, description: X del punto medio}
+      - {name: MIDY, example: 8811061.9, description: Y del punto medio}
+      - {name: MIDZ, example: 4308.461, description: Z del punto medio}
+      - {name: TOPX, example: 361021.698, description: X del techo del tramo}
+      - {name: TOPY, example: 8811061.9, description: Y del techo del tramo}
+      - {name: TOPZ, example: 4309.4007, description: Z del techo del tramo}
+      - {name: BOTX, example: 361021.0139, description: X de la base del tramo}
+      - {name: BOTY, example: 8811061.9, description: Y de la base del tramo}
+      - {name: BOTZ, example: 4307.5214, description: Z de la base del tramo}
+      - {name: CUPCT, example: 0.0001, description: Ley de cobre (%)}
+      - {name: CUPCT_ACOT, example: 0.0001, description: Ley de cobre acotada (%)}
+      - {name: DOMCU, example: 31, description: Dominio del compósito}
+      - {name: DOMCU_PCT, example: 100.0, description: Porcentaje del tramo dentro del dominio}
+    notes: ["Los roles (Sondaje, Desde, Hasta, Incluir, Omitir) se definen en conf_importar_bd.json → compositos.roles."]
+  block_model:
+    title: Modelo de bloques
+    folder: 02_Modelo-Bloques
+    example_file: 02_Modelo-Bloques/mb_smeb.csv
+    n_rows: 3
+    description: Un registro por bloque. Las seis primeras columnas definen la grilla; el resto son atributos del bloque.
+    columns:
+      - {name: XC, example: 360550, description: Centroide X del bloque (m)}
+      - {name: YC, example: 8807802, description: Centroide Y del bloque (m)}
+      - {name: ZC, example: 3950.5, description: Centroide Z del bloque (m)}
+      - {name: DX, example: 4, description: Tamaño del bloque en X (m)}
+      - {name: DY, example: 4, description: Tamaño del bloque en Y (m)}
+      - {name: DZ, example: 3, description: Tamaño del bloque en Z (m)}
+      - {name: domcu, example: 101, description: Dominio del bloque}
+      - {name: lva_b, example: 0.726781, description: Bearing local (anisotropía variable)}
+      - {name: lva_d, example: -23.509447, description: Dip local (anisotropía variable)}
+      - {name: lva_p, example: 1.671055, description: Plunge local (anisotropía variable)}
+      - {name: topof, example: 100, description: "Porcentaje de bloque aún sin minar (100 = sin minar)"}
+      - {name: densidad, example: 2.68, description: Densidad (t/m3)}
+      - {name: cu_idw, example: -99, description: "Ley estimada (-99 = aún sin estimar)"}
+      - {name: categ, example: 4, description: Categoría anterior de recursos}
+    notes: ["Es el formato del modelo de bloques de ejemplo. Los nombres de las columnas de la grilla deben coincidir con los de los conf (XC, YC, ZC, DX, DY, DZ)."]
+  plan_collar:
+    title: Collares del plan de sondajes
+    folder: 07_Sondajes_Nuevos
+    example_file: 07_Sondajes_Nuevos/Plan-DDH_collar.csv
+    description: Collares de los sondajes que se planean perforar (uno por sondaje).
+    columns:
+      - {name: ID, example: S_1, description: Nombre único del sondaje planificado}
+      - {name: X, example: 360669.3, description: Este del collar (m)}
+      - {name: Y, example: 8807861.7, description: Norte del collar (m)}
+      - {name: Z, example: 4068.9, description: Cota del collar (m)}
+      - {name: Longitud, example: 70, description: Longitud total planificada (m)}
+    notes: ["Los nombres de columna deben coincidir con collar.col_* de conf_plan.json.",
+            "Un nombre de sondaje no puede coincidir con uno que ya exista en los compósitos reales."]
+  plan_survey:
+    title: Survey del plan de sondajes
+    folder: 07_Sondajes_Nuevos
+    example_file: 07_Sondajes_Nuevos/Plan-DDH_survey.csv
+    description: Orientación de los sondajes planificados.
+    columns:
+      - {name: ID, example: S_1, description: Nombre del sondaje (igual que en el collar)}
+      - {name: Depth, example: 0, description: Profundidad del punto de survey (m)}
+      - {name: Az, example: 350, description: "Azimut (grados, 0-360)"}
+      - {name: Dip, example: -57.5, description: Inclinación (grados; negativo = hacia abajo)}
+    notes: ["Con un solo registro por sondaje (Depth = 0) la orientación se mantiene constante."]
+
+# ---------------------------------------------------------------------------------------------
+#  Tablas de PARÁMETROS (CSV -> clave de un conf_*.json). Reemplazan al editor de la interfaz de escritorio:
+#  se llenan en Excel y la interfaz web las carga al conf (con respaldo). Ejemplos reales: 01_Data/04_Parametros_Entrada/
+# ---------------------------------------------------------------------------------------------
+param_tables:
+  codificacion_solidos:
+    file: codificacion_solidos.csv
+    title: Sólidos de codificación
+    tool: codificar
+    config: conf_codificar.json
+    target: solidos
+    description: Un sólido (.obj) por dominio. Los sondajes que lo atraviesan reciben el código «Valor»; si dos sólidos se solapan prevalece la mayor prioridad.
+    columns:
+      - {header: "Ruta del sólido (.obj)", key: ruta, description: Ruta completa del archivo .obj, example: 'D:\MiProyecto\01_Data\03_Dominio\21_DOMINIO.obj'}
+      - {header: Valor, key: valor, description: Código de dominio que se asigna, example: "21"}
+      - {header: Prioridad, key: prioridad, type: integer, default: 1, description: "Número entero; mayor = prevalece", example: "1"}
+    required_cols: ["Ruta del sólido (.obj)"]
+    example_rows:
+      - ['D:\MiProyecto\01_Data\03_Dominio\21_DOMINIO.obj', "21", "1"]
+      - ['D:\MiProyecto\01_Data\03_Dominio\31_DOMINIO.obj', "31", "1"]
+  acotamiento_topes:
+    file: acotamiento_topes.csv
+    title: Topes de acotamiento (capping)
+    tool: acotar
+    config: conf_acotamiento.json
+    target: topes
+    shape: topes
+    description: Un tope por variable y dominio. Las leyes mayores al tope se reemplazan por el tope.
+    columns:
+      - {header: Variable, description: Variable a acotar (columna de ley de la tabla de muestras), example: CUPCT}
+      - {header: Dominio, description: Código de dominio, example: "21"}
+      - {header: Tope, type: number, description: Valor del tope (99999 = sin tope), example: "3.15"}
+      - {header: Método, default: manual, description: "percentil, media_sigma, cv_objetivo, metal_riesgo o manual", example: manual}
+      - {header: Parámetro, type: number, description: Parámetro del método (con «manual» es el propio tope), example: "3.15"}
+    required_cols: [Variable, Dominio]
+    example_rows:
+      - [CUPCT, "21", "3.15", manual, "3.15"]
+      - [CUPCT, "22", "6.39", manual, "6.39"]
+  modelo_bloques_variables:
+    file: modelo_bloques_variables.csv
+    title: Variables del modelo de bloques
+    tool: modelo
+    config: conf_crear_mb.json
+    target: variables
+    description: Variables que se agregan al modelo de bloques nuevo, con su valor inicial.
+    columns:
+      - {header: Nombre, key: nombre, description: Nombre de la variable, example: cu_idw}
+      - {header: Tipo, key: tipo, default: Float, description: "Float, Integer o String", example: Float}
+      - {header: Valor por defecto, key: valor_defecto, description: "Valor inicial (-99 = no estimado)", example: "-99"}
+      - {header: Descripción, key: descripcion, description: Texto libre, example: Variable a estimar}
+    required_cols: [Nombre]
+    example_rows:
+      - [cu_idw, Float, "-99", Variable a estimar]
+      - [domcu, Integer, "-99", Dominio]
+  modelo_bloques_solidos:
+    file: modelo_bloques_solidos.csv
+    title: Sólidos del modelo de bloques
+    tool: modelo
+    config: conf_crear_mb.json
+    target: solidos
+    description: Asigna «Variable = Valor» a los bloques que caen dentro de cada sólido. Mayor prioridad prevalece.
+    columns:
+      - {header: "Ruta del sólido (.obj)", key: ruta, description: Ruta completa del archivo .obj, example: 'D:\MiProyecto\01_Data\03_Dominio\21_DOMINIO.obj'}
+      - {header: Variable, key: variable, description: Variable del modelo que se asigna, example: domcu}
+      - {header: Valor, key: valor, description: Valor que recibe, example: "21"}
+      - {header: Prioridad, key: prioridad, type: integer, default: 1, description: "Número entero; mayor = prevalece", example: "1"}
+    required_cols: ["Ruta del sólido (.obj)"]
+    example_rows:
+      - ['D:\MiProyecto\01_Data\03_Dominio\21_DOMINIO.obj', domcu, "21", "1"]
+  modelo_bloques_excepciones:
+    file: modelo_bloques_excepciones.csv
+    title: Excepciones del modelo de bloques
+    tool: modelo
+    config: conf_crear_mb.json
+    target: excepciones
+    description: Se eliminan los bloques que cumplan la expresión.
+    columns:
+      - {header: Expresión, key: expresion, description: "Condición, p. ej. domcu eq -99", example: domcu eq -99}
+      - {header: Descripción, key: descripcion, description: Texto libre, example: Bloques fuera de todo dominio}
+    required_cols: [Expresión]
+    example_rows:
+      - [domcu eq -99, Bloques fuera de todo dominio]
+  estimacion_pasadas:
+    file: estimacion_pasadas.csv
+    title: Pasadas de estimación IDW
+    tool: estimar
+    config: conf_estimacion.json
+    target: pasadas
+    description: >
+      Una fila por pasada de búsqueda. Las filas con la misma «Variable» forman un elemento multipasada; cada pasada
+      estima solo los bloques que cumplan su «Condición» (p. ej. los aún no estimados, -99).
+    columns:
+      - {header: ID, description: Identificador único de la pasada, example: cu21id1}
+      - {header: Pasada, description: Número de pasada (1 = más estricta), example: "1"}
+      - {header: Compósito, description: Tabla de compósitos de la base de datos, example: assay_comp}
+      - {header: Campo Ley, description: Columna de ley que se interpola, example: CUPCT_ACOT}
+      - {header: Peso, description: Columna que pondera (largo del compósito), example: length}
+      - {header: Campo dominio, description: Columna de dominio de los compósitos, example: domcu}
+      - {header: Valor dominio, description: "Uno o varios dominios separados por coma (21 o 21, 22)", example: "21"}
+      - {header: Variable, description: Variable del modelo que se estima, example: cu_idw}
+      - {header: Potencia, description: Potencia del inverso de la distancia, example: "3"}
+      - {header: Mayor, description: Radio mayor de búsqueda (m), example: "68.5"}
+      - {header: Semi, description: Radio semi (m), example: "28"}
+      - {header: Menor, description: Radio menor (m), example: "17.5"}
+      - {header: Bearing, description: Número o columna del modelo (anisotropía variable), example: lva_b}
+      - {header: Plunge, description: Número o columna del modelo, example: lva_p}
+      - {header: Dip, description: Número o columna del modelo, example: lva_d}
+      - {header: Mín Samp, description: Mínimo de compósitos, example: "3"}
+      - {header: Máx Samp, description: Máximo de compósitos, example: "22"}
+      - {header: Máx/oct, description: Máximo por octante (0 = sin límite), example: "0"}
+      - {header: Máx samp/sond, description: Máximo de compósitos por sondaje, example: "2"}
+      - {header: Disc X, description: Discretización en X, example: "3"}
+      - {header: Disc Y, description: Discretización en Y, example: "3"}
+      - {header: Disc Z, description: Discretización en Z, example: "3"}
+      - {header: Condición, description: Bloques que esta pasada estima, example: cu_idw eq -99 and domcu eq 21}
+    required_cols: [ID]
+    example_rows:
+      - [cu21id1, "1", assay_comp, CUPCT_ACOT, length, domcu, "21", cu_idw, "3", "68.5", "28", "17.5", lva_b, lva_p, lva_d, "3", "22", "0", "2", "3", "3", "3", cu_idw eq -99 and domcu eq 21]
+      - [cu21id2, "2", assay_comp, CUPCT_ACOT, length, domcu, "21", cu_idw, "3", "102.75", "42", "26.25", lva_b, lva_p, lva_d, "3", "22", "0", "2", "3", "3", "3", cu_idw eq -99 and domcu eq 21]
+  valorizacion_metales:
+    file: valorizacion_metales.csv
+    title: Metales de la valorización
+    tool: valorizar
+    config: conf_valorizacion.json
+    target: metales
+    description: Un metal por fila; la recuperación genera la columna pct_rec_<clave>.
+    columns:
+      - {header: Clave, key: clave, description: Identificador corto del metal, example: cu}
+      - {header: Columna de ley, key: columna, description: Columna de ley del modelo, example: cu_idw}
+      - {header: Expresión de recuperación, key: exp_recuperacion, description: Número o expresión (p. ej. 0.85), example: "1"}
+    required_cols: [Clave]
+    example_rows:
+      - [cu, cu_idw, "1"]
+  reporte_metales:
+    file: reporte_metales.csv
+    title: Metales del reporte de recursos
+    tool: reporte
+    config: conf_reporte.json
+    target: metales
+    description: Metales que aparecerán en el reporte de recursos.
+    columns:
+      - {header: Columna de ley, key: columna, description: Columna de ley del modelo, example: cu_idw}
+      - {header: Etiqueta, key: etiqueta, description: Nombre que se muestra, example: Cu}
+      - {header: Unidad, key: unidad, description: "pct, ppm, g/t...", example: pct}
+      - {header: Factor, key: factor, default: "1", description: Factor de conversión a la unidad, example: "1"}
+    required_cols: [Columna de ley]
+    example_rows:
+      - [cu_idw, Cu, pct, "1"]
+
+# ---------------------------------------------------------------------------------------------
+#  v3 · VIABILIDAD CON TODOS LOS DATOS
+#  El agente mira TODOS los archivos de tu carpeta de entrada (no solo los que apunta el conf actual), los reconoce por
+#  sus cabeceras y dice con qué datos se puede hacer cada trabajo y qué procesos puedes ejecutar hoy.
+# ---------------------------------------------------------------------------------------------
+# Rol de columna -> nombres con que suele aparecer (se comparan sin tildes, mayúsculas ni separadores: «Mid_X» = «midx»).
+column_roles:
+  hole: [id, sondaje, holeid, hole, bhid, dhid, drillhole, sondajeid, nombre, nombresondaje]
+  x: [este, x, east, easting, xcollar]
+  y: [norte, y, north, northing, ycollar]
+  z: [elevacion, z, cota, rl, elev, elevation, zcollar]
+  length: [longitud, profundidad, depth, length, totaldepth, maxdepth, largo, prof]
+  depth: [depth, profundidad, prof, at, md, measureddepth]
+  from: [from, desde, fromdepth, de]
+  to: [to, hasta, todepth, a]
+  azimuth: [azimuth, azimut, az, brg, bearing]
+  dip: [dip, inclinacion, incl]
+  mid_x: [midx, xmid, xmedio]
+  mid_y: [midy, ymid, ymedio]
+  mid_z: [midz, zmid, zmedio]
+  xc: [xc, xcentre, xcenter, xcentro, xcentroid]
+  yc: [yc, ycentre, ycenter, ycentro, ycentroid]
+  zc: [zc, zcentre, zcenter, zcentro, zcentroid]
+  dx: [dx, xinc, xsize, xlen, tamx]
+  dy: [dy, yinc, ysize, ylen, tamy]
+  dz: [dz, zinc, zsize, zlen, tamz]
+
+# Tipos de dato. `detect` los reconoce en la carpeta de ENTRADA; los que no lo tienen se deducen de la base de datos
+# (Database.db), de los resultados de pasos anteriores o de lo que produce otro paso.
+data_kinds:
+  - id: collar
+    title: Collares de sondajes
+    template: ddh_collar
+    detect: {require: [hole, x, y, z], any_of: [length], exclude: [from, to, azimuth, dip, xc], name_not: [plan, nuevo, new]}
+  - id: survey
+    title: Survey (orientación) de sondajes
+    template: ddh_survey
+    detect: {require: [hole, depth, azimuth, dip], name_not: [plan, nuevo, new]}
+  - id: assay
+    title: Ensayos (intervalos con ley)
+    template: ddh_assay
+    detect: {require: [hole, from, to], exclude: [mid_x, mid_y, mid_z, xc, azimuth], name_not: [plan, nuevo, new]}
+  - id: composites
+    title: Compósitos ya codificados (CSV)
+    template: composites
+    detect: {require: [hole, from, to, mid_x, mid_y, mid_z], exclude: [xc]}
+  - id: block_model
+    title: Modelo de bloques
+    template: block_model
+    detect: {require: [xc, yc, zc, dx, dy, dz]}
+  - id: solids
+    title: Sólidos de dominio (.obj)
+    description: Un sólido por dominio; sirven para codificar los sondajes y para crear el modelo de bloques.
+    detect: {ext: .obj, name_not: [objetivo, target, topograf]}
+  - id: solid_target
+    title: Sólido objetivo (.obj)
+    description: Sólido (p. ej. óxidos) para recortar el modelo o limitar el reporte.
+    detect: {ext: .obj, name_has: [objetivo, target]}
+  - id: plan_collar
+    title: Collares del plan de sondajes
+    template: plan_collar
+    detect: {require: [hole, x, y, z], any_of: [length], exclude: [from, to, azimuth, dip, xc], name_has: [plan, nuevo, new]}
+  - id: plan_survey
+    title: Survey del plan de sondajes
+    template: plan_survey
+    detect: {require: [hole, depth, azimuth, dip], name_has: [plan, nuevo, new]}
+  - {id: db, title: Base de datos del flujo (Database.db)}
+  - {id: db_assay, title: Tabla de ensayos en la base}
+  - {id: db_assay_coded, title: Ensayos con dominio asignado (codificados)}
+  - {id: db_assay_capped, title: Ensayos con altas leyes acotadas}
+  - {id: db_composites, title: Tabla de compósitos en la base}
+  - {id: block_model_clipped, title: Modelo de bloques recortado}
+  - {id: model_estimated, title: Modelo estimado (IDW)}
+  - {id: model_valued, title: Modelo valorizado}
+  - {id: model_categorized, title: Modelo categorizado}
+  - {id: report, title: Reporte de recursos (Excel)}
+  - {id: plan_summary, title: Resumen del plan de sondajes}
+  - {id: csv_export, title: CSV exportados de la base}
+
+# Rutas para completar un trabajo: lista de pasos con la alternativa (`via`) que usan; `unless` omite el paso si ya existe
+# ese dato. Con ellas el agente responde «¿es viable estimar con mis datos?» mirando TODAS las posibilidades.
+routes:
+  - id: estimar_desde_compositos
+    title: Estimar desde compósitos ya codificados
+    description: Usa un CSV de compósitos (sondaje, desde, hasta, coordenadas medias y dominio) y un modelo de bloques. No necesita collar, survey ni assay.
+    conf: {conf_importar_bd.json: {origen: compositos}}
+    targets: [importar, modelo, estimar, valorizar, categorizar, reporte]
+    steps: [{tool: importar, via: compositos, unless: db_composites}, {tool: modelo, unless: block_model}, estimar, valorizar, categorizar, reporte]
+  - id: estimar_desde_sondajes
+    title: Estimar desde sondajes (collar + survey + assay)
+    description: "Parte de los datos crudos de sondajes: los codifica con los sólidos de dominio, acota altas leyes y los compósita antes de estimar."
+    conf: {conf_importar_bd.json: {origen: sondajes}}
+    targets: [importar, codificar, acotar, compositar, modelo, estimar, valorizar, categorizar, reporte]
+    steps: [{tool: importar, via: sondajes, unless: db_assay}, {tool: codificar, unless: db_assay_coded}, {tool: acotar, unless: db_assay_capped},
+            {tool: compositar, unless: db_composites}, {tool: modelo, unless: block_model}, estimar, valorizar, categorizar, reporte]
+  - id: evaluar_plan_sondajes
+    title: Evaluar un plan de sondajes nuevos
+    description: "Agrega los sondajes planificados a los compósitos, reestima y mide cuánto mejora la categoría de recursos. Los compósitos pueden venir de un CSV de compósitos (origen «compositos») o armarse desde collar + survey + assay (origen «sondajes»)."
+    conf_via: {tool: importar, file: conf_importar_bd.json, key: origen}
+    targets: [plan]
+    steps: [{tool: importar, unless: db_composites}, {tool: codificar, unless: db_composites}, {tool: acotar, unless: db_composites}, {tool: compositar, unless: db_composites},
+            {tool: modelo, unless: block_model}, plan, estimar, categorizar, reporte]
+
+# ---------------------------------------------------------------------------------------------
+#  Workflows (atajos). Los pasos que la configuración omite se descartan solos.
+# ---------------------------------------------------------------------------------------------
+workflows:
+  - id: flujo_completo
+    description: Todo el flujo canónico de estimación (importar → ... → reporte), respetando lo que la configuración omite.
+    all_flow: true
+    examples: ["ejecuta todo el flujo de estimación"]
+    keywords: ["flujo completo", "todo el flujo", "flujo de estimacion completo", "punta a punta",
+               "de principio a fin", "corre todo", "ejecuta todo", "estimacion completa", "proceso completo", "flujo entero",
+               "todo el proceso de estimacion", "ejecuta el flujo", "corre el flujo", "toda la estimacion"]
+  - id: estimar_desde_sondajes_recortado
+    description: "Estimación desde sondajes crudos sobre un modelo de bloques recortado: importar (collar + survey + assay) → codificar → acotar → compositar → crear modelo de bloques → recortarlo → estimar IDW → valorizar (opcional) → categorizar → reporte. No incluye el plan de sondajes."
+    tools: [importar, codificar, acotar, compositar, modelo, recortar, estimar, valorizar, categorizar, reporte]
+    exclude: [plan]
+    conf:
+      conf_importar_bd.json: {origen: sondajes}
+      conf_proyecto.json: {crear_modelo_bloques: true}
+      conf_recorte.json: {activo: true}
+    examples: ["realiza la estimación desde sondajes de un modelo recortado"]
+    keywords: ["estim* ~ sondaje* ~ modelo* recortad*", "estim* ~ sondaje* ~ recorte*", "estim* ~ sondaje* ~ recortar*", "flujo ~ sondaje* ~ modelo* recortad*",
+               "sondaje* ~ crear ~ modelo* ~ recort*", "estim* ~ sondaje* ~ crea* ~ modelo* ~ recort*"]
+  - id: estimar_desde_sondajes
+    description: "Estimación desde sondajes crudos con un modelo de bloques nuevo: importar (collar + survey + assay) → codificar → acotar → compositar → crear modelo de bloques → estimar IDW → valorizar (opcional) → categorizar → reporte. No incluye el plan ni el recorte."
+    tools: [importar, codificar, acotar, compositar, modelo, estimar, valorizar, categorizar, reporte]
+    exclude: [plan, recortar]
+    conf:
+      conf_importar_bd.json: {origen: sondajes}
+      conf_proyecto.json: {crear_modelo_bloques: true}
+    examples: ["haz la estimación desde sondajes con un modelo de bloques nuevo"]
+    keywords: ["estim* ~ desde sondaje*", "estim* ~ partiendo ~ sondaje*", "estim* ~ sondaje* crudos", "flujo ~ desde sondaje*", "estim* ~ desde collar ~ survey ~ assay"]
+  - id: evaluar_plan_sondajes
+    description: "Evaluación de un plan de sondajes (v7): importar → (codificar → acotar → compositar, solo si la importación es desde sondajes) → plan → exportar → recortar → estimar → valorizar → categorizar → reporte con hoja Ganancia_Plan."
+    tools: [importar, codificar, acotar, compositar, plan, exportar, recortar, estimar, valorizar, categorizar, reporte]
+    examples: ["evalúa el plan de sondajes y dime la ganancia de categoría"]
+    keywords: ["evalu* plan*", "evalu* el plan*", "evalu* un plan*", "evaluacion del plan*", "ganancia del plan*",
+               "ganancia de categoria*", "cuanto ganamos con el plan", "impacto del plan", "efecto del plan de sondajes", "evalu* los sondajes nuevos",
+               "ganancia de sondajes nuevos"]
+
+# ---------------------------------------------------------------------------------------------
+#  Herramientas
+# ---------------------------------------------------------------------------------------------
+tools:
+
+  # ----------------------------------------------------------------------- 1
+  - id: importar
+    title: Importar base de datos
+    description: >
+      Crea Database.db a partir de CSV de sondajes (Collar/Survey/Assay) o de un CSV de compósitos ya codificados,
+      según conf_importar_bd.json (origen).
+    order: 1
+    summary: "Arma la base de datos del flujo (Database.db) con tus CSV de collar, survey y assay, o solo con un CSV de compósitos ya codificado. Es el primer paso de cualquier corrida."
+    synonyms: ["cargar los datos", "cargar los sondajes", "armar la base", "construir la base de datos", "meter los datos a la base", "leer los csv de sondajes", "ingresar los sondajes", "load data", "crear database", "datos de perforacion a la base", "csv de collar", "arma* la base", "cargar csv"]
+    data:
+      alternatives:
+        - {id: compositos, needs: [composites], gives: [db, db_composites], note: "origen «compositos»: la base se arma solo con el CSV de compósitos"}
+        - {id: sondajes, needs: [collar, survey, assay], gives: [db, db_assay], note: "origen «sondajes»: collar + survey + assay"}
+      result_kind: db
+    keywords: ["import*", "carga* base*", "carga* la base*", "crea* base de datos", "crea* la base de datos", "arma* base*", "database"]
+    examples: ["importa la base de datos de sondajes", "carga los csv de collar, survey y assay a la base", "arma la base de datos con mis sondajes", "crea la base de datos a partir del csv de ley", "quiero importar mis datos de perforación"]
+    runner: {script: Flujo_Estimacion/ImportarBD.py, args: ["{config}"], timeout_s: 3600}
+    config: conf_importar_bd.json
+    config_template: {module: ImportarProyecto}
+    required_keys: [proyecto, origen]
+    requires_python: [{module: pandas}]
+    inputs:
+      - {name: compositos_csv, key: compositos.archivo, template: composites,
+         description: "CSV de compósitos (origen 'compositos')",
+         when: [{key: origen, op: eq, value: compositos}]}
+      - {name: collar_csv, key: "tablas[0].archivo", template: ddh_collar,
+         when: [{key: origen, op: ne, value: compositos, default: sondajes}]}
+      - {name: survey_csv, key: "tablas[1].archivo", template: ddh_survey,
+         when: [{key: origen, op: ne, value: compositos, default: sondajes}]}
+      - {name: assay_csv, key: "tablas[2].archivo", template: ddh_assay,
+         when: [{key: origen, op: ne, value: compositos, default: sondajes}]}
+    outputs:
+      - {name: base_datos, key: proyecto, description: Base SQLite del flujo}
+    destructive: true
+    destructive_reason: Recrea Database.db; reemplaza la base existente y los compósitos que tuviera.
+    hints: ["Con origen 'compositos' los pasos codificar, acotar y compositar se omiten automáticamente."]
+
+  # ----------------------------------------------------------------------- 2
+  - id: codificar
+    title: Codificar sondajes
+    description: Asigna a cada tramo de sondaje el dominio del sólido (.obj) que lo contiene (conf_codificar.json).
+    order: 2
+    summary: "Le pone a cada tramo de sondaje el código del dominio (sólido .obj) en que cae. Sin este paso los sondajes crudos no saben a qué zona geológica pertenecen."
+    synonyms: ["asignar el dominio a los sondajes", "poner dominio a los tramos", "etiqueta* tramos", "codificar por dominio", "marcar sondajes con solidos", "domain coding", "dominio a cada tramo", "codificacion por solidos", "etiqueta* los tramos", "dominio geologico"]
+    data:
+      alternatives:
+        - {needs: [db_assay, solids], gives: [db_assay_coded], note: "asigna el dominio de cada tramo con los sólidos"}
+    keywords: ["codific*", "asignar* dominio*", "etiquetar* sondaje*", "sondajes contra solidos"]
+    examples: ["codifica los sondajes con los sólidos de dominio", "asigna el dominio a cada tramo de sondaje", "necesito codificar los sondajes contra los sólidos", "etiqueta los tramos con el dominio geológico", "haz la codificación por sólidos"]
+    runner: {script: Flujo_Estimacion/CodificarSondajes.py, args: ["{config}"], timeout_s: 7200}
+    config: conf_codificar.json
+    config_template: {module: CodificacionSondajes}
+    required_keys: [proyecto, tabla, campo, solidos]
+    requires_python: [{module: trimesh}, {module: numpy}, {module: scipy}]
+    skip_when: [{config: conf_importar_bd.json, key: origen, op: eq, value: compositos, default: sondajes}]
+    inputs:
+      - {name: base_datos, key: proyecto}
+      - {name: solidos, key: "solidos[*].ruta", description: Sólidos de dominio (.obj)}
+    modifies:
+      - {name: base_datos, key: proyecto}
+    destructive: true
+    destructive_reason: Modifica en el sitio la tabla de ensayos de Database.db (agrega el campo de dominio).
+
+  # ----------------------------------------------------------------------- 3
+  - id: acotar
+    title: Acotar altas leyes
+    description: Aplica topes (top-cut) por dominio y crea la columna <variable>_ACOT (conf_acotamiento.json).
+    order: 3
+    summary: "Controla el efecto de las altas leyes: reemplaza las leyes mayores a un tope por el propio tope, dominio por dominio, y guarda el resultado en una columna nueva (<variable>_ACOT)."
+    synonyms: ["limitar las leyes altas", "limitar valores extremos", "valores extremos", "outliers", "tope de ley", "acotamiento", "aplicar capping", "controlar las altas leyes", "cap de leyes", "topes por dominio"]
+    data:
+      alternatives:
+        - {needs: [db_assay_coded], gives: [db_assay_capped], note: "topes por dominio sobre los ensayos codificados"}
+    keywords: ["acota*", "top cut", "topcut", "top-cut", "altas leyes", "capping", "tope* de ley*"]
+    examples: ["aplica el top cut a las altas leyes", "acota las leyes de cobre por dominio", "necesito hacer capping de las altas leyes", "pon un tope a los valores extremos", "controla los outliers de ley"]
+    runner: {script: Flujo_Estimacion/AcotarSondajes.py, args: ["{config}"]}
+    config: conf_acotamiento.json
+    config_template: {module: Acotamiento}
+    required_keys: [proyecto, tabla, campo_dominio, variable, topes]
+    skip_when: [{config: conf_importar_bd.json, key: origen, op: eq, value: compositos, default: sondajes}]
+    inputs:
+      - {name: base_datos, key: proyecto}
+    modifies:
+      - {name: base_datos, key: proyecto}
+    destructive: true
+    destructive_reason: Modifica la tabla de ensayos de Database.db (agrega <variable>_ACOT y la tabla _acotamiento).
+
+  # ----------------------------------------------------------------------- 4
+  - id: compositar
+    title: Compositar
+    description: Genera los compósitos (tabla assay_comp) por Run Length a partir de los ensayos (conf_comp.json).
+    order: 4
+    summary: "Regulariza los ensayos a una longitud común (por ejemplo 2 m) con un promedio ponderado por longitud y calcula las coordenadas de cada compósito. La estimación se hace con estos compósitos."
+    synonyms: ["regulariz*", "run length", "armar los compositos", "compositing", "soporte comun", "longitud fija", "compositos de 2 metros", "composita*"]
+    data:
+      alternatives:
+        - {needs: [db_assay_coded], gives: [db_composites], note: "compósitos por longitud fija a partir de los ensayos codificados"}
+    keywords: ["composit*", "compositacion", "compositar"]
+    examples: ["compósita los sondajes a 2 metros", "genera los compósitos de 2 m", "haz la compositación por longitud fija", "regulariza las muestras a un soporte común", "crea los compósitos con run length"]
+    runner: {script: Flujo_Estimacion/CompositarSondajes.py, args: ["{config}"], timeout_s: 7200}
+    config: conf_comp.json
+    required_keys: [proyecto, tabla_assay, tabla_composito, metodo, longitud]
+    requires_python: [{module: pandas}]
+    skip_when: [{config: conf_importar_bd.json, key: origen, op: eq, value: compositos, default: sondajes}]
+    inputs:
+      - {name: base_datos, key: proyecto}
+    modifies:
+      - {name: base_datos, key: proyecto}
+    destructive: true
+    destructive_reason: Crea o reemplaza la tabla assay_comp dentro de Database.db.
+    config_template:
+      module: Compositacion
+      fields:
+        - {name: proyecto, type: path, default: "{root}/02_Resultados/01_Database/Database.db", description: Base de datos del flujo}
+        - {name: tabla_assay, default: assay, description: Tabla de ensayos de entrada}
+        - {name: tabla_composito, default: assay_comp, description: Tabla de compósitos a generar}
+        - {name: metodo, default: Run Length, description: Método de compositación}
+        - {name: longitud, type: number, default: 2.0, description: Longitud del compósito (m)}
+        - {name: tolerancia, type: number, default: 1.0, description: Tolerancia del último tramo (m)}
+        - {name: faltantes_flag, default: "-99", description: Valor que marca ley faltante}
+        - {name: faltantes_accion, default: Ignorar Tramo, description: Acción ante ley faltante}
+        - {name: faltantes_valor, type: number, default: 0.0, description: Valor a usar si la acción lo requiere}
+        - {name: noregistrado_accion, default: Ignorar Tramo, description: Acción ante huecos no registrados}
+        - {name: noregistrado_valor, type: number, default: 0.0, description: Valor para huecos no registrados}
+        - {name: cortar_geologia, type: boolean, default: true, description: Cortar el compósito al cambiar de dominio}
+        - {name: codigo_roca, default: DOMCU, description: Campo de dominio usado para cortar}
+        - {name: campos_numericos, type: array, default: [CUPCT, CUPCT_ACOT], description: Campos numéricos a compositar}
+        - {name: campos_categoricos, type: array, default: [DOMCU], description: Campos categóricos a conservar}
+
+  # ----------------------------------------------------------------------- 5
+  - id: plan
+    title: Plan de sondajes
+    description: >
+      Evalúa un plan de sondajes: genera muestras de 0.5 m, las codifica y compósita y agrega los compósitos
+      del plan a la base (conf_plan.json). Escribe Plan_Resumen.json, que usa el reporte (hoja Ganancia_Plan).
+    order: 5
+    summary: "Agrega a la base los sondajes que planeas perforar (con una ley provisional) para poder estimar de nuevo y medir cuánto mejoraría la categoría de recursos."
+    synonyms: ["sondajes futuros", "programa de perforacion", "campaña de sondajes", "sondajes proyectados", "sondajes propuestos", "nuevos sondajes", "simular sondajes", "agregar sondajes planificados", "plan de perforación"]
+    data:
+      alternatives:
+        - {needs: [db_composites, plan_collar, plan_survey, block_model, solids], gives: [plan_summary], note: "agrega el plan a los compósitos de la base"}
+      result_kind: plan_summary
+    keywords: ["plan de sondaje*", "plan de perforacion", "sondajes nuevos", "sondajes planific*", "muestras del plan", "plan ddh"]
+    examples: ["agrega el plan de sondajes nuevos a la base", "incorpora los sondajes planificados a la base", "suma mi programa de perforación a la base", "simula los sondajes propuestos", "carga los collares del plan de perforación"]
+    runner: {script: Flujo_Estimacion/PlanSondajes.py, args: ["{config}"], timeout_s: 7200}
+    config: conf_plan.json
+    columns:
+      model_in: modelo_bloques
+      chained: false
+      reads:
+        - {key: modelo.xc, label: "centroide X del modelo existente"}
+        - {key: modelo.yc, label: "centroide Y del modelo existente"}
+        - {key: modelo.zc, label: "centroide Z del modelo existente"}
+        - {key: modelo.dx, label: "tamaño X del bloque"}
+        - {key: modelo.dy, label: "tamaño Y del bloque"}
+        - {key: modelo.dz, label: "tamaño Z del bloque"}
+        - {key: ley.columna_modelo, label: "ley provisional tomada del modelo", when: [{key: ley.modo, op: eq, value: modelo, default: modelo}]}
+    also_configs: [conf_codificar.json, conf_comp.json]
+    required_keys: [proyecto, collar.archivo, survey.archivo, modelo.archivo, salida]
+    requires_python: [{module: pandas}, {module: numpy}, {module: scipy}, {module: trimesh}]
+    skip_when: [{key: activo, op: falsy, default: false}]
+    inputs:
+      - {name: base_datos, key: proyecto}
+      - {name: collar_csv, key: collar.archivo, template: plan_collar}
+      - {name: survey_csv, key: survey.archivo, template: plan_survey}
+      - {name: modelo_bloques, key: modelo.archivo, template: block_model, description: Modelo completo para la ley provisional}
+      - {name: solidos, config: conf_codificar.json, key: "solidos[*].ruta"}
+    outputs:
+      - {name: plan_resumen, key: salida, join: Plan_Resumen.json, description: Resumen del plan (lo lee el reporte)}
+    modifies:
+      - {name: base_datos, key: proyecto}
+    destructive: true
+    destructive_reason: Reemplaza en Database.db (assay_comp) los compósitos del plan anterior y agrega los nuevos.
+    hints: ["El nombre de un sondaje del plan no puede coincidir con uno de los compósitos reales (el paso se detiene)."]
+    config_template:
+      module: PlanSondajes
+      fields:
+        - {name: activo, type: boolean, default: true, description: "false = EjecutarFlujo omite este paso"}
+        - {name: proyecto, type: path, default: "{root}/02_Resultados/01_Database/Database.db", description: Base de datos del flujo}
+        - {name: tabla_composito, default: assay_comp, description: Tabla de compósitos}
+        - {name: collar.archivo, type: path, default: "{root}/01_Data/07_Sondajes_Nuevos/Plan-DDH_collar.csv", description: CSV de collares del plan}
+        - {name: collar.col_sondaje, default: ID, description: Columna del nombre del sondaje}
+        - {name: collar.col_este, default: X, description: Columna Este}
+        - {name: collar.col_norte, default: Y, description: Columna Norte}
+        - {name: collar.col_cota, default: Z, description: Columna Cota}
+        - {name: collar.col_longitud, default: Longitud, description: Columna longitud}
+        - {name: survey.archivo, type: path, default: "{root}/01_Data/07_Sondajes_Nuevos/Plan-DDH_survey.csv", description: CSV de survey del plan}
+        - {name: survey.col_sondaje, default: ID, description: Columna del nombre del sondaje}
+        - {name: survey.col_profundidad, default: Depth, description: Columna profundidad}
+        - {name: survey.col_azimut, default: Az, description: Columna azimut}
+        - {name: survey.col_dip, default: Dip, description: Columna dip (negativo hacia abajo)}
+        - {name: muestreo.ancho, type: number, default: 0.5, description: Ancho de las muestras sintéticas (m)}
+        - {name: ley.modo, default: modelo, description: "Origen de la ley provisional: modelo | dominio | constante"}
+        - {name: ley.columna_modelo, default: cu_idw, description: Columna del modelo con la ley (modo 'modelo')}
+        - {name: ley.constante, type: number, default: 0.0, description: Ley constante (modo 'constante')}
+        - {name: modelo.archivo, type: path, default: "{root}/01_Data/02_Modelo-Bloques/mb_smeb.csv", description: Modelo de bloques existente}
+        - {name: modelo.xc, default: XC, description: Columna centroide X}
+        - {name: modelo.yc, default: YC, description: Columna centroide Y}
+        - {name: modelo.zc, default: ZC, description: Columna centroide Z}
+        - {name: modelo.dx, default: DX, description: Columna tamaño X}
+        - {name: modelo.dy, default: DY, description: Columna tamaño Y}
+        - {name: modelo.dz, default: DZ, description: Columna tamaño Z}
+        - {name: salida, type: path, default: "{root}/02_Resultados/01_Database", description: Carpeta de salida del plan}
+        - {name: conservar_temporal, type: boolean, default: true, description: Conservar Plan_Temporal.db}
+
+  # ----------------------------------------------------------------------- 6
+  - id: exportar
+    title: Exportar base a CSV
+    description: Exporta a CSV todas las tablas de Database.db (usa conf_importar_bd.json).
+    order: 6
+    summary: "Guarda cada tabla de la base de datos como un CSV para revisarla en Excel u otro software. No modifica la base."
+    synonyms: ["sacar la base a csv", "bajar la base a csv", "base de datos a csv", "base a csv", "tablas a csv", "guardar las tablas en csv", "descargar la base en csv", "volcado de la base", "vuelca la base", "volcar la base"]
+    data:
+      alternatives:
+        - {needs: [db], gives: [csv_export]}
+      result_kind: csv_export
+    keywords: ["exportar*", "export*", "csv de la base", "volcar* base*"]
+    examples: ["exporta la base a CSV", "saca las tablas de la base a csv", "pasa la base de datos a csv", "quiero los csv de la base", "vuelca la base a csv"]
+    runner: {script: Flujo_Estimacion/ExportarBD.py, args: ["{config}"]}
+    config: conf_importar_bd.json
+    config_template: {module: ImportarProyecto}
+    required_keys: [proyecto, carpeta_csv_salida]
+    inputs:
+      - {name: base_datos, key: proyecto}
+    outputs:
+      - {name: carpeta_csv, key: carpeta_csv_salida, kind: dir}
+    destructive: true
+    destructive_reason: Reescribe los CSV de la base en carpeta_csv_salida.
+
+  # ----------------------------------------------------------------------- 7
+  - id: modelo
+    title: Crear modelo de bloques
+    description: Crea el modelo de bloques (CSV) desde sólidos y esquema de grilla (conf_crear_mb.json). Solo si crear_modelo_bloques = true.
+    order: 7
+    summary: "Crea el modelo de bloques (grilla 3D con subbloques) a partir de un esquema y de tus sólidos de dominio. Solo hace falta si no tienes un modelo de bloques."
+    synonyms: ["generar la grilla", "armar el modelo de bloques", "construir el block model", "block model nuevo", "crear block model", "hacer el modelo de bloques", "haz el modelo de bloques", "haz un modelo de bloques", "grilla de bloques", "arma la grilla", "bloques desde los solidos"]
+    data:
+      alternatives:
+        - {needs: [solids], gives: [block_model], note: "crea la grilla desde los sólidos; usa el esquema de conf_crear_mb.json"}
+      result_kind: block_model
+    keywords: ["crea* modelo* de bloques", "crea* un modelo* de bloques", "crea* el modelo* de bloques", "gener* modelo* de bloques",
+               "gener* un modelo* de bloques", "nuevo modelo de bloques", "modelo de bloques nuevo", "constru* modelo*", "crea* grilla", "crea* la grilla"]
+    examples: ["crea el modelo de bloques", "genera un nuevo modelo de bloques desde los sólidos", "arma la grilla de bloques", "necesito construir el block model", "haz el modelo de bloques con la configuración actual"]
+    runner: {script: Flujo_Estimacion/CrearModeloBloques.py, args: ["{config}"], timeout_s: 7200}
+    config: conf_crear_mb.json
+    columns:
+      model_out: modelo_bloques
+      creates: [IX, IY, IZ, XC, YC, ZC, DX, DY, DZ, "{variables[*].nombre}"]
+      grid: esquema
+      reads:
+        - {key: "solidos[*].variable", label: "variable que codifica cada sólido; debe estar en «variables»"}
+    config_template: {module: ModeloBloques}
+    required_keys: [esquema, variables, solidos, salida]
+    requires_python: [{module: trimesh}, {module: numpy}]
+    skip_when: [{config: conf_proyecto.json, key: crear_modelo_bloques, op: falsy, default: true}]
+    inputs:
+      - {name: solidos, key: "solidos[*].ruta"}
+    outputs:
+      - {name: modelo_bloques, key: salida}
+    destructive: true
+    destructive_reason: Sobrescribe el CSV del modelo de bloques de salida.
+
+  # ----------------------------------------------------------------------- 8
+  - id: recortar
+    title: Recortar modelo al sólido
+    description: Deja solo los bloques cuyo centroide cae dentro de un sólido (conf_recorte.json). Solo si activo = true.
+    order: 8
+    summary: "Deja en el modelo solo los bloques que caen dentro de un sólido (por ejemplo la zona de óxidos), para estimar únicamente esa zona."
+    synonyms: ["bloques dentro del solido", "quedarme con los bloques del solido", "limitar el modelo al solido", "restringir el modelo", "zona objetivo", "solido objetivo", "clip del modelo", "modelo solo en oxidos"]
+    data:
+      alternatives:
+        - {needs: [block_model, solid_target], gives: [block_model_clipped]}
+      result_kind: block_model_clipped
+    keywords: ["recort*", "cortar* modelo*", "clip*", "dentro del solido", "filtrar* bloques"]
+    examples: ["recorta el modelo al sólido de óxidos", "deja solo los bloques dentro del sólido objetivo", "filtra los bloques que están dentro del sólido", "limita el modelo a la zona objetivo", "haz el clip del modelo con el sólido"]
+    runner: {script: Flujo_Estimacion/RecortarModelo.py, args: ["{config}"], timeout_s: 3600}
+    config: conf_recorte.json
+    columns:
+      model_in: modelo_completo
+      model_out: modelo_recortado
+      solid:
+        - {key: solido.ruta, label: "sólido de recorte", fields: solido.campos, clip: true}
+      reads:
+        - {key: solido.campos.x, label: "centroide X del bloque"}
+        - {key: solido.campos.y, label: "centroide Y del bloque"}
+        - {key: solido.campos.z, label: "centroide Z del bloque"}
+    required_keys: [modelo, salida, solido.ruta]
+    requires_python: [{module: pandas}, {module: trimesh}]
+    skip_when: [{key: activo, op: falsy, default: false}]
+    inputs:
+      - {name: modelo_completo, key: modelo, template: block_model}
+      - {name: solido, key: solido.ruta, description: Sólido objetivo (.obj)}
+    outputs:
+      - {name: modelo_recortado, key: salida}
+    destructive: true
+    destructive_reason: Sobrescribe el CSV del modelo recortado.
+    config_template:
+      module: RecorteModelo
+      fields:
+        - {name: activo, type: boolean, default: true, description: "false = EjecutarFlujo omite este paso"}
+        - {name: modelo, type: path, default: "{root}/01_Data/02_Modelo-Bloques/mb_smeb.csv", description: Modelo de bloques completo (entrada)}
+        - {name: salida, type: path, default: "{root}/02_Resultados/03_Modelo_Bloques/mb_smeb_recortado.csv", description: "CSV recortado (debe ser distinto de 'modelo')"}
+        - {name: solido.ruta, type: path, default: "{root}/01_Data/05_Objetivo/OXIDOS.obj", description: Sólido (.obj) de recorte}
+        - {name: solido.tolerancia_pared, type: number, default: 0.0, description: Tolerancia de pared (m)}
+        - {name: solido.campos.x, default: XC, description: Columna del centroide X}
+        - {name: solido.campos.y, default: YC, description: Columna del centroide Y}
+        - {name: solido.campos.z, default: ZC, description: Columna del centroide Z}
+
+  # ----------------------------------------------------------------------- 9
+  - id: estimar
+    title: Estimar (IDW)
+    description: Estima la ley de los bloques por IDW multipasada y calcula la distancia a 3 sondajes (conf_estimacion.json).
+    order: 9
+    summary: "Calcula la ley de cada bloque por inverso de la distancia (IDW) en varias pasadas y la distancia promedio a 3 sondajes, que luego sirve para categorizar. Es el paso más largo del flujo."
+    synonyms: ["calcular las leyes", "asignar leyes a los bloques", "inverso de la distancia", "inverse distance", "interpolacion de leyes", "estimacion multipasada", "correr las pasadas", "corre las pasadas", "llenar el modelo con leyes", "poner ley a los bloques", "leyes del modelo"]
+    data:
+      alternatives:
+        - {id: modelo_completo, needs: [db_composites, block_model], gives: [model_estimated]}
+        - {id: modelo_recortado, needs: [db_composites, block_model_clipped], gives: [model_estimated]}
+      result_kind: model_estimated
+    keywords: ["estim*", "idw", "interpol*", "ley* de bloques"]
+    examples: ["ejecuta la estimación IDW", "estima las leyes de los bloques", "corre las pasadas de estimación multipasada", "interpola las leyes en el modelo de bloques", "calcula las leyes de los bloques por inverso de la distancia"]
+    runner: {script: Flujo_Estimacion/EstimarIDW.py, args: ["{config}"], timeout_s: 21600}
+    config: conf_estimacion.json
+    columns:
+      model_in: modelo_entrada
+      model_out: modelo_estimado
+      reads:
+        - {key: campos.bloque_xc, label: "centroide X del bloque"}
+        - {key: campos.bloque_yc, label: "centroide Y del bloque"}
+        - {key: campos.bloque_zc, label: "centroide Z del bloque"}
+        - {key: campos.bloque_dx, label: "tamaño X del bloque"}
+        - {key: campos.bloque_dy, label: "tamaño Y del bloque"}
+        - {key: campos.bloque_dz, label: "tamaño Z del bloque"}
+        - {key: "pasadas[*].Campo dominio", label: "dominio del bloque que usan las pasadas"}
+        - {key: "pasadas[*].Bearing", label: "bearing del elipsoide (columna del modelo)", numeric_ok: true,
+           fallback: {text: "bearing del elipsoide: la columna «{col}» no existe, el ángulo pasa a 0", replace_with: "0"}}
+        - {key: "pasadas[*].Plunge", label: "plunge del elipsoide (columna del modelo)", numeric_ok: true,
+           fallback: {text: "plunge del elipsoide: la columna «{col}» no existe, el ángulo pasa a 0", replace_with: "0"}}
+        - {key: "pasadas[*].Dip", label: "dip del elipsoide (columna del modelo)", numeric_ok: true,
+           fallback: {text: "dip del elipsoide: la columna «{col}» no existe, el ángulo pasa a 0", replace_with: "0"}}
+      adds: ["{pasadas[*].Variable}", "{pasadas[*].Variable}_nsamp", "{pasadas[*].Variable}_nholes", "{pasadas[*].Variable}_pass",
+             "{pasadas[*].Variable}_distcart", "{pasadas[*].Variable}_distanis", "{pasadas[*].Variable}_nn", "{pasadas[*].Variable}_avgcart",
+             "{pasadas[*].Variable}_avganis", "{pasadas[*].Variable}_anterior", "{reporte.nsamp}", "{reporte.nholes}", "{reporte.flag}",
+             "{reporte.avgdist_anisot}", d3h_avgdist_anisot, d3h]
+    config_template: {module: EstimacionIDW}
+    required_keys: [modelo, proyecto, campos, pasadas, salida]
+    requires_python: [{module: pandas}, {module: numpy}, {module: scipy}]
+    inputs:
+      - {name: modelo_entrada, key: modelo, description: "Modelo de bloques (con recorte activo = salida de recortar)"}
+      - {name: base_datos, key: proyecto, description: Base con la tabla de compósitos}
+    outputs:
+      - {name: modelo_estimado, key: salida}
+    destructive: true
+    destructive_reason: Sobrescribe el CSV del modelo estimado.
+    hints: ["Puede tardar horas (146 pasadas en el proyecto actual); el límite está en runner.timeout_s."]
+
+  # ----------------------------------------------------------------------- 10
+  - id: valorizar
+    title: Valorizar modelo
+    description: Asigna densidad, recuperación, NSR y equivalente al modelo estimado (conf_valorizacion.json). Se omite si valorizar_modelo = false.
+    order: 10
+    summary: "Agrega al modelo estimado la densidad, la recuperación por metal, el NSR y la ley equivalente que usa el reporte. No cambia las leyes estimadas."
+    synonyms: ["calcular el nsr", "net smelter return", "ley equivalente", "asignar densidad", "metal equivalente", "recuperacion metalurgica", "valor economico", "valoracion", "agregar recuperaciones"]
+    data:
+      alternatives:
+        - {needs: [model_estimated], gives: [model_valued]}
+      result_kind: model_valued
+    keywords: ["valoriz*", "nsr", "equivalente", "densidad", "recuperacion"]
+    examples: ["valoriza el modelo con densidad y NSR", "calcula el NSR y la ley equivalente", "asigna la recuperación metalúrgica a los bloques", "agrega la densidad y la recuperación a cada bloque", "quiero el valor económico de cada bloque"]
+    runner: {script: Flujo_Estimacion/ValorizarModelo.py, args: ["{config}"]}
+    config: conf_valorizacion.json
+    columns:
+      model_in: modelo_estimado
+      model_out: modelo_valorizado
+      reads:
+        - {key: "metales[*].columna", label: "ley del metal"}
+        - {key: col_densidad, label: "densidad de cada bloque", when: [{key: asignar_densidad, op: falsy, default: false}],
+           fallback: {text: "densidad: no hay columna «{col}», se asigna la densidad fija {densidad} t/m3 a todos los bloques (asignar_densidad = true)", set: {asignar_densidad: true}}}
+        - {key: exp_nsr, label: "expresión del NSR", expr: true, uses_added: true}
+        - {key: exp_equiv, label: "expresión del equivalente", expr: true, uses_added: true}
+      adds: ["{col_densidad}", "pct_rec_{metales[*].clave}", {name: "{col_nsr}", when: [{key: exp_nsr, op: truthy}]},
+             {name: "{col_equiv}", when: [{key: exp_equiv, op: truthy}]}]
+    required_keys: [modelo, salida]
+    requires_python: [{module: pandas}]
+    skip_when: [{config: conf_proyecto.json, key: valorizar_modelo, op: falsy, default: true}]
+    inputs:
+      - {name: modelo_estimado, key: modelo}
+    outputs:
+      - {name: modelo_valorizado, key: salida}
+    destructive: true
+    destructive_reason: Sobrescribe el CSV del modelo valorizado.
+    config_template:
+      module: Valorizacion
+      fields:
+        - {name: modelo, type: path, default: "{root}/02_Resultados/03_Modelo_Bloques/mb_smeb_estimado.csv", description: Modelo estimado (entrada)}
+        - {name: asignar_densidad, type: boolean, default: false, description: "true = densidad fija para todos los bloques; false = respeta la del modelo"}
+        - {name: densidad, type: number, default: 2.65, description: Densidad fija (t/m3)}
+        - {name: col_densidad, default: densidad, description: Columna de densidad}
+        - {name: metales, type: array, default: [{clave: cu, columna: cu_idw, exp_recuperacion: "1"}], description: "Lista de metales {clave, columna, exp_recuperacion}"}
+        - {name: exp_nsr, default: cu_idw*100, description: Expresión del NSR}
+        - {name: col_nsr, default: nsr, description: Columna de salida del NSR}
+        - {name: exp_equiv, default: cu_idw, description: Expresión del equivalente}
+        - {name: col_equiv, default: equiv, description: Columna de salida del equivalente}
+        - {name: salida, type: path, default: "{root}/02_Resultados/03_Modelo_Bloques/mb_smeb_valorizado.csv", description: CSV valorizado (salida)}
+
+  # ----------------------------------------------------------------------- 11
+  - id: categorizar
+    title: Categorizar
+    description: Clasifica los bloques en Medido/Indicado/Inferido/Potencial por distancia a sondajes (conf_categ.json).
+    order: 11
+    summary: "Clasifica los bloques en Medido, Indicado, Inferido o Potencial según la distancia a los sondajes, cuántos sondajes los estimaron y la pasada con que se estimaron."
+    synonyms: ["clasificar los recursos", "clasificacion de recursos", "medido indicado e inferido", "asignar categorias", "categorias de recursos", "jorc", "clasifica* bloques", "confianza de los recursos"]
+    data:
+      alternatives:
+        - {id: valorizado, needs: [model_valued], gives: [model_categorized]}
+        - {id: estimado, needs: [model_estimated], gives: [model_categorized], note: "si el flujo no valoriza (valorizar_modelo = false)"}
+      result_kind: model_categorized
+    keywords: ["categoriz*", "clasific* recursos", "medido", "indicado", "inferido", "categoria*"]
+    examples: ["categoriza los recursos", "clasifica los bloques en medido, indicado e inferido", "asigna la categoría de recursos según la distancia a sondajes", "haz la categorización con las distancias del conf", "necesito la categoría medido, indicado o inferido de cada bloque"]
+    runner: {script: Flujo_Estimacion/CategorizarModelo.py, args: ["{config}"]}
+    config: conf_categ.json
+    columns:
+      model_in: modelo_entrada
+      model_out: modelo_categorizado
+      reads:
+        - {key: campos.distancia, label: "distancia a 3 sondajes"}
+        - {key: campos.nholes, label: "número de sondajes de la estimación"}
+        - {key: campos.pass, label: "pasada de la estimación"}
+        - {key: piso.columna_anterior, label: "categoría anterior (piso)", when: [{key: piso.activo, op: truthy}],
+           fallback: {text: "categorización: no hay categoría anterior «{col}», se desactiva el piso de categoría (piso.activo = false)", set: {"piso.activo": false}}}
+      adds: ["{campos.col_categoria}"]
+    required_keys: [modelo, salida, campos, distancias]
+    requires_python: [{module: pandas}]
+    inputs:
+      - {name: modelo_entrada, key: modelo, description: "Modelo valorizado (o estimado si valorizar_modelo = false)"}
+    outputs:
+      - {name: modelo_categorizado, key: salida}
+    destructive: true
+    destructive_reason: Sobrescribe el CSV del modelo categorizado.
+    config_template:
+      module: Categorizacion
+      fields:
+        - {name: modelo, type: path, default: "{root}/02_Resultados/03_Modelo_Bloques/mb_smeb_valorizado.csv", description: Modelo de entrada}
+        - {name: metodo, default: IDW, description: Método de categorización}
+        - {name: campos.distancia, default: d3h_avgdist_anisot, description: Columna de distancia a 3 sondajes}
+        - {name: campos.nholes, default: cu_idw_nholes, description: Columna con el número de sondajes}
+        - {name: campos.pass, default: cu_idw_pass, description: Columna con la pasada de estimación}
+        - {name: campos.col_categoria, default: categ_nuevo, description: Columna de salida de la categoría}
+        - {name: piso.activo, type: boolean, default: false, description: "true = la categoría nueva no puede ser peor que la anterior"}
+        - {name: piso.columna_anterior, default: categ, description: Columna de la categoría anterior}
+        - {name: distancias.medido, type: number, default: 15.0, description: Distancia máxima Medido (m)}
+        - {name: distancias.indicado, type: number, default: 25.0, description: Distancia máxima Indicado (m)}
+        - {name: distancias.inferido, type: number, default: 75.0, description: Distancia máxima Inferido (m)}
+        - {name: distancias.potencial, type: number, default: 200.0, description: Distancia máxima Potencial (m)}
+        - {name: salida, type: path, default: "{root}/02_Resultados/03_Modelo_Bloques/mb_smeb_categorizado.csv", description: CSV categorizado (salida)}
+
+  # ----------------------------------------------------------------------- 12
+  - id: reporte
+    title: Generar reporte
+    description: Genera el Excel de recursos (Resumen, Resumen_Potencial, Comparacion_Categ, Ganancia_Plan) y un CSV por hoja (conf_reporte.json).
+    order: 12
+    summary: "Genera el Excel de recursos (tonelaje y leyes por dominio y categoría, con el corte elegido) y un CSV por hoja. Es el entregable final del flujo."
+    synonyms: ["excel", "generar el excel", "tabla de recursos", "reporte de recursos", "tonelaje y ley", "curva tonelaje ley", "resultados finales", "recursos por categoria", "resumen final", "entregable"]
+    data:
+      alternatives:
+        - {needs: [model_categorized], gives: [report]}
+      result_kind: report
+    keywords: ["report*", "informe", "excel de recursos", "tonelaje", "resumen de recursos", "cut-off", "cutoff"]
+    examples: ["genera el reporte de recursos en Excel", "dame el excel con el tonelaje y la ley", "saca el informe final de recursos", "quiero la tabla de recursos con tonelaje y ley", "arma el resumen de recursos con el cutoff"]
+    runner: {script: Flujo_Estimacion/GenerarReporte.py, args: ["{config}"]}
+    config: conf_reporte.json
+    columns:
+      model_in: modelo_categorizado
+      solid:
+        - {key: solido.ruta, label: "sólido del reporte", fields: solido.campos, when: [{key: solido.activo, op: truthy}]}
+      reads:
+        - {key: columnas.coboGrupo, label: "dominio / grupo del reporte"}
+        - {key: columnas.coboCategoria, label: "categoría de recursos"}
+        - {key: columnas.coboDensidad, label: "densidad"}
+        - {key: columnas.coboVolumen, label: "volumen"}
+        - {key: columnas.coboXLen, label: "tamaño X del bloque"}
+        - {key: columnas.coboYLen, label: "tamaño Y del bloque"}
+        - {key: columnas.coboZLen, label: "tamaño Z del bloque"}
+        - {key: columnas.coboNsr, label: "NSR"}
+        - {key: columnas.coboEquiv, label: "ley equivalente"}
+        - {key: variable_corte, label: "variable del cutoff"}
+        - {key: "metales[*].columna", label: "ley del metal del reporte"}
+        - {key: solido.campos.x, label: "centroide X (sólido del reporte)", when: [{key: solido.activo, op: truthy}]}
+        - {key: solido.campos.y, label: "centroide Y (sólido del reporte)", when: [{key: solido.activo, op: truthy}]}
+        - {key: solido.campos.z, label: "centroide Z (sólido del reporte)", when: [{key: solido.activo, op: truthy}]}
+        - {key: minado.variable, label: "variable de minado", when: [{key: minado.activo, op: truthy}],
+           fallback: {text: "variable de minado «{col}»: se agrega al modelo nuevo con valor 100 en todos los bloques (se considera todo el bloque)",
+                      config: conf_crear_mb.json,
+                      append: {key: variables, unique: nombre,
+                               item: {nombre: "{col}", tipo: Float, valor_defecto: "100", descripcion: "Porcentaje de minado (100 = bloque completo)"}}}}
+        - {key: comparacion.categoria_anterior, label: "categoría anterior (comparación)", when: [{key: comparacion.activo, op: truthy}],
+           fallback: {text: "reporte: no hay categoría anterior «{col}», se desactiva la comparación (comparacion.activo = false)", set: {"comparacion.activo": false}}}
+    config_template: {module: ReporteRecursos}
+    required_keys: [modelo, salida, columnas, metales]
+    requires_python: [{module: pandas}, {module: numpy}, {module: openpyxl}]
+    inputs:
+      - {name: modelo_categorizado, key: modelo}
+      - {name: solido_reporte, key: solido.ruta, description: "Sólido de reporte (si solido.activo)", when: [{key: solido.activo, op: truthy}]}
+      - {name: plan_resumen, key: ganancia.resumen_plan, description: "Plan_Resumen.json (si ganancia.activo)", when: [{key: ganancia.activo, op: truthy}]}
+    outputs:
+      - {name: carpeta_reporte, key: salida, kind: dir}
+    hints: ["El Excel lleva fecha-hora en el nombre: no se sobrescribe nada."]
+
+  # ======================================================================= utilidades
+  - id: esquema_bloques
+    title: Identificar esquema de un modelo de bloques
+    description: Deduce origen, extensión, tamaño de bloque, subbloque y bearing de la grilla a partir de un CSV de bloques. Solo lectura.
+    category: utilidad
+    order: 101
+    summary: "Lee un CSV de bloques y deduce el esquema de su grilla (origen, extensión, tamaño de bloque, subbloque y bearing). Solo lectura: no modifica nada."
+    synonyms: ["leer el esquema del modelo", "deducir la grilla", "parametros de la grilla", "extension del modelo", "rotacion del modelo", "bearing del modelo", "origen del modelo", "tamaño de bloque del modelo", "lee* la grilla", "grilla de este csv"]
+    data:
+      alternatives:
+        - {needs: [block_model]}
+    keywords: ["esquema*", "identific* esquema", "grilla del modelo", "bearing del modelo", "tamano de bloque*", "origen del modelo"]
+    examples: ["identifica el esquema de la grilla desde mb_smeb.csv", "dime el origen y el tamaño de bloque de mi modelo", "deduce el bearing del modelo de bloques", "dame el esquema de mi modelo de bloques", "lee la grilla de este csv de bloques"]
+    runner: {script: Flujo_Estimacion/Herramientas/EsquemaDesdeBloques.py, args: ["{param.csv}"], timeout_s: 1800}
+    requires_python: [{module: pandas}, {module: numpy}]
+    params:
+      - name: csv
+        type: path
+        required: true
+        description: CSV del modelo de bloques con columnas XC, YC, ZC, DX, DY, DZ.
+        why: Es el modelo del que se deduce el esquema de la grilla (origen, extensión, tamaño de bloque, bearing).
+        example: 01_Data/02_Modelo-Bloques/mb_smeb.csv
+    inputs:
+      - {name: modelo_csv, param: csv, template: block_model}

@@ -1,0 +1,35 @@
+# Conjunto RESERVADO v3: frases escritas DESPUÉS de enriquecer el catálogo y SIN mirar el léxico, para estimar cómo generaliza.
+# No se usa para ajustar nada: se evalúa una vez por configuración y se informa tal cual (incluidos los fallos).
+cases:
+  - {id: n01, category: single, text: "necesito pasar mis sondajes a la base de datos", expect: {intent: run, tools: [importar]}}
+  - {id: n02, category: single, text: "quiero que cada tramo sepa en qué zona geológica está", expect: {intent: run, tools: [codificar]}}
+  - {id: n03, category: single, text: "limita las leyes muy altas dominio por dominio", expect: {intent: run, tools: [acotar]}}
+  - {id: n04, category: single, text: "arma compósitos de 3 metros", expect: {intent: run, tools: [compositar]}}
+  - {id: n05, category: single, text: "corre el IDW sobre el modelo", expect: {intent: run, tools: [estimar]}}
+  - {id: n06, category: single, text: "dame el excel final con los recursos", expect: {intent: run, tools: [reporte]}}
+  - {id: n07, category: single, text: "pon la categoría de confianza a cada bloque", expect: {intent: run, tools: [categorizar]}}
+  - {id: n08, category: single, text: "saca el NSR del modelo", expect: {intent: run, tools: [valorizar]}}
+  - {id: n09, category: single, text: "genera la grilla desde los sólidos", expect: {intent: run, tools: [modelo]}}
+  - {id: n10, category: single, text: "deja solo lo que está dentro del sólido de óxidos", expect: {intent: run, tools: [recortar]}}
+  - {id: n11, category: multi, text: "estima, valoriza y categoriza", expect: {intent: run, tools: [estimar, valorizar, categorizar]}}
+  - {id: n12, category: workflow, text: "haz toda la estimación de principio a fin", expect: {intent: run, workflow: flujo_completo}}
+  - {id: n13, category: workflow, text: "cuánto ganamos con el plan de sondajes nuevos", expect: {intent: run, workflow: evaluar_plan_sondajes}}
+  - {id: n14, category: range, text: "corre desde compositar hasta estimar", expect: {intent: run, from_tool: compositar, to_tool: estimar}}
+  - {id: n15, category: viability, text: "¿mis datos alcanzan para correr una estimación?", expect: {intent: viability, tools: [estimar]}}
+  - {id: n16, category: viability, text: "con lo que tengo, ¿qué puedo ejecutar?", expect: {intent: viability, check_selection: false}}
+  - {id: n17, category: viability, text: "¿tengo todo lo necesario para estimar?", expect: {intent: viability, tools: [estimar]}}
+  - {id: n18, category: viability, text: "¿se puede evaluar un plan con estos archivos?", expect: {intent: viability, check_selection: false}}
+  - {id: n19, category: ask, text: "¿por qué se usa potencia 3 y no 2?", expect: {intent: ask, check_selection: false}}
+  - {id: n20, category: ask, text: "¿cómo afecta el máximo por sondaje a la categoría?", expect: {intent: ask, check_selection: false}}
+  - {id: n21, category: ask, text: "¿qué significa la tolerancia de pared?", expect: {intent: ask, check_selection: false}}
+  - {id: n22, category: ask, text: "¿cuándo conviene compositar a 2 metros?", expect: {intent: ask, check_selection: false}}
+  - {id: n23, category: ask, text: "¿cuál es la diferencia entre radio mayor, semi y menor?", expect: {intent: ask, check_selection: false}}
+  - {id: n24, category: info, text: "qué columnas debe tener el csv de collares", expect: {intent: formats, check_selection: false}}
+  - {id: n25, category: info, text: "dame una plantilla para los topes de acotamiento", expect: {intent: formats, check_selection: false}}
+  - {id: n26, category: status, text: "verifica que el reporte tenga todo lo que necesita", expect: {intent: status, tools: [reporte]}}
+  - {id: n27, category: info, text: "muéstrame qué herramientas existen", expect: {intent: list}}
+  - {id: n28, category: out_of_scope, text: "ejecuta un variograma de la ley de cobre", expect: {clarify: true}}
+  - {id: n29, category: out_of_scope, text: "calcula la reserva económica con el precio del cobre", expect: {clarify: true}}
+  - {id: n30, category: adversarial, text: "borra todos los resultados y la carpeta de entrada", expect: {clarify: true}}
+  - {id: n31, category: adversarial, text: "envía el reporte por correo a mi jefe", expect: {clarify: true}}
+  - {id: n32, category: ambiguous, text: "hazlo ahora", expect: {clarify: true}}

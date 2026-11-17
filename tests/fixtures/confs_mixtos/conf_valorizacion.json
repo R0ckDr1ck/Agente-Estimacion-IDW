@@ -1,0 +1,20 @@
+{
+    "__modulo__": "Valorizacion",
+    "__version__": "1.0",
+    "modelo": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_estimado.csv",
+    "asignar_densidad": false,
+    "densidad": 2.65,
+    "col_densidad": "densidad",
+    "metales": [
+        {
+            "clave": "au",
+            "columna": "au_idw",
+            "exp_recuperacion": "1"
+        }
+    ],
+    "exp_nsr": "cu_idw*100",
+    "col_nsr": "nsr",
+    "exp_equiv": "cu_idw",
+    "col_equiv": "equiv",
+    "salida": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_valorizado.csv"
+}

@@ -1,0 +1,20 @@
+{
+    "__modulo__": "Valorizacion",
+    "__version__": "1.0",
+    "modelo": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_estimado.csv",
+    "asignar_densidad": true,
+    "densidad": 2.65,
+    "col_densidad": "densidad",
+    "metales": [
+        {
+            "clave": "cu",
+            "columna": "cu_idw",
+            "exp_recuperacion": "1"
+        }
+    ],
+    "exp_nsr": "cu_idw*100",
+    "col_nsr": "nsr",
+    "exp_equiv": "cu_idw",
+    "col_equiv": "equiv",
+    "salida": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_valorizado.csv"
+}

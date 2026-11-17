@@ -1,0 +1,5 @@
+{
+    "__modulo__": "ReporteDemo",
+    "resumen": "out/resumen.json",
+    "salida": "out/informe.md"
+}

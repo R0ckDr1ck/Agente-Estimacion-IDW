@@ -1,0 +1,16 @@
+{
+    "__modulo__": "RecorteModelo",
+    "__version__": "1.0",
+    "activo": true,
+    "modelo": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\01_Data\\02_Modelo-Bloques\\mb_smeb.csv",
+    "salida": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_recortado.csv",
+    "solido": {
+        "ruta": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\01_Data\\05_Objetivo\\OXIDOS.obj",
+        "tolerancia_pared": 0.0,
+        "campos": {
+            "x": "XC",
+            "y": "YC",
+            "z": "ZC"
+        }
+    }
+}

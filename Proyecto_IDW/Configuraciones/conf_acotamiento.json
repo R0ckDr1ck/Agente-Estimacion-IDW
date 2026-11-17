@@ -1,0 +1,169 @@
+{
+    "__modulo__": "Acotamiento",
+    "__version__": "1.0",
+    "proyecto": "C:\\MiProyecto\\02_Resultados\\01_Database\\Database.db",
+    "tabla": "assay",
+    "campo_dominio": "DOMCU",
+    "variable": "CUPCT",
+    "nulos": "-99",
+    "bdl": "mitad",
+    "topes": {
+        "CUPCT": {
+            "21": {
+                "tope": 3.15,
+                "metodo": "manual",
+                "parametro": 3.15
+            },
+            "22": {
+                "tope": 6.39,
+                "metodo": "manual",
+                "parametro": 6.39
+            },
+            "23": {
+                "tope": 11.95,
+                "metodo": "manual",
+                "parametro": 11.95
+            },
+            "31": {
+                "tope": 6.71,
+                "metodo": "manual",
+                "parametro": 6.71
+            },
+            "32": {
+                "tope": 6.04,
+                "metodo": "manual",
+                "parametro": 6.04
+            },
+            "33": {
+                "tope": 19.01,
+                "metodo": "manual",
+                "parametro": 19.01
+            },
+            "34": {
+                "tope": 20.24,
+                "metodo": "manual",
+                "parametro": 20.24
+            },
+            "41": {
+                "tope": 3.22,
+                "metodo": "manual",
+                "parametro": 3.22
+            },
+            "42": {
+                "tope": 1.6,
+                "metodo": "manual",
+                "parametro": 1.6
+            },
+            "43": {
+                "tope": 99999.0,
+                "metodo": "manual",
+                "parametro": 99999.0
+            },
+            "51": {
+                "tope": 0.1,
+                "metodo": "manual",
+                "parametro": 0.1
+            },
+            "52": {
+                "tope": 99999.0,
+                "metodo": "manual",
+                "parametro": 99999.0
+            },
+            "53": {
+                "tope": 99999.0,
+                "metodo": "manual",
+                "parametro": 99999.0
+            },
+            "61": {
+                "tope": 6.34,
+                "metodo": "manual",
+                "parametro": 6.34
+            },
+            "62": {
+                "tope": 14.28,
+                "metodo": "manual",
+                "parametro": 14.28
+            },
+            "63": {
+                "tope": 20.31,
+                "metodo": "manual",
+                "parametro": 20.31
+            },
+            "64": {
+                "tope": 21.64,
+                "metodo": "manual",
+                "parametro": 21.64
+            },
+            "71": {
+                "tope": 4.0,
+                "metodo": "manual",
+                "parametro": 4.0
+            },
+            "72": {
+                "tope": 10.22,
+                "metodo": "manual",
+                "parametro": 10.22
+            },
+            "73": {
+                "tope": 14.3,
+                "metodo": "manual",
+                "parametro": 14.3
+            },
+            "74": {
+                "tope": 17.53,
+                "metodo": "manual",
+                "parametro": 17.53
+            },
+            "81": {
+                "tope": 8.19,
+                "metodo": "manual",
+                "parametro": 8.19
+            },
+            "82": {
+                "tope": 9.42,
+                "metodo": "manual",
+                "parametro": 9.42
+            },
+            "83": {
+                "tope": 13.0,
+                "metodo": "manual",
+                "parametro": 13.0
+            },
+            "84": {
+                "tope": 99999.0,
+                "metodo": "manual",
+                "parametro": 99999.0
+            },
+            "91": {
+                "tope": 5.0,
+                "metodo": "manual",
+                "parametro": 5.0
+            },
+            "92": {
+                "tope": 99999.0,
+                "metodo": "manual",
+                "parametro": 99999.0
+            },
+            "93": {
+                "tope": 99999.0,
+                "metodo": "manual",
+                "parametro": 99999.0
+            },
+            "101": {
+                "tope": 5.09,
+                "metodo": "manual",
+                "parametro": 5.09
+            },
+            "102": {
+                "tope": 8.81,
+                "metodo": "manual",
+                "parametro": 8.81
+            },
+            "103": {
+                "tope": 9.28,
+                "metodo": "manual",
+                "parametro": 9.28
+            }
+        }
+    }
+}

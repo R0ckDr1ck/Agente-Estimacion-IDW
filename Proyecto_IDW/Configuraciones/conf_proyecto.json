@@ -1,0 +1,13 @@
+{
+    "__modulo__": "Proyecto",
+    "__version__": "1.0",
+    "raiz": "C:\\MiProyecto",
+    "base_datos": "C:\\MiProyecto\\02_Resultados\\01_Database\\Database.db",
+    "carpeta_database": "C:\\MiProyecto\\02_Resultados\\01_Database",
+    "carpeta_modelo_bloques": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques",
+    "carpeta_reporte": "C:\\MiProyecto\\02_Resultados\\04_Reporte",
+    "nombre_modelo": "mb_smeb",
+    "crear_modelo_bloques": true,
+    "modelo_bloques_existente": "C:\\MiProyecto\\01_Data\\02_Modelo-Bloques\\mb_smeb.csv",
+    "valorizar_modelo": true
+}

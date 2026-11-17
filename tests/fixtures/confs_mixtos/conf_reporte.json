@@ -1,0 +1,56 @@
+{
+    "__modulo__": "ReporteRecursos",
+    "__version__": "1.0",
+    "modelo": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_categorizado.csv",
+    "salida": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\02_Resultados\\04_Reporte",
+    "columnas": {
+        "coboGrupo": "domcu",
+        "coboCategoria": "categ_nuevo",
+        "coboDensidad": "densidad",
+        "coboVolumen": "",
+        "coboXLen": "DX",
+        "coboYLen": "DY",
+        "coboZLen": "DZ",
+        "coboNsr": "",
+        "coboEquiv": ""
+    },
+    "variable_corte": "equiv",
+    "cutoff": 0.0,
+    "metal_principal": "Cu",
+    "unidad_principal": "g/t",
+    "metales": [
+        {
+            "columna": "au_idw",
+            "etiqueta": "Au",
+            "unidad": "ppm",
+            "factor": "1"
+        }
+    ],
+    "fecha_reporte": "2026-11-02",
+    "etiqueta_precios": "",
+    "solido": {
+        "activo": true,
+        "ruta": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\01_Data\\05_Objetivo\\OXIDOS.obj",
+        "tolerancia_pared": 0.0,
+        "campos": {
+            "x": "XC",
+            "y": "YC",
+            "z": "ZC"
+        }
+    },
+    "minado": {
+        "activo": true,
+        "variable": "topof",
+        "tipo": "porcentaje"
+    },
+    "comparacion": {
+        "activo": true,
+        "categoria_anterior": "categ"
+    },
+    "valorizado": false,
+    "ganancia": {
+        "activo": true,
+        "resumen_plan": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\01_Database\\Plan_Resumen.json",
+        "longitud_manual": ""
+    }
+}

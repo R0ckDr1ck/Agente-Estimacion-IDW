@@ -1,0 +1,13 @@
+{
+    "__modulo__": "Proyecto",
+    "__version__": "1.0",
+    "raiz": "D:\\Proyecto_SLM\\Prueba_Agente_v2",
+    "base_datos": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\01_Database\\Database.db",
+    "carpeta_database": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\01_Database",
+    "carpeta_modelo_bloques": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\03_Modelo_Bloques",
+    "carpeta_reporte": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\02_Resultados\\04_Reporte",
+    "nombre_modelo": "mb_smeb",
+    "crear_modelo_bloques": false,
+    "modelo_bloques_existente": "D:\\Proyecto_SLM\\Prueba_Agente_v2\\01_Data\\02_Modelo-Bloques\\mb_smeb.csv",
+    "valorizar_modelo": true
+}

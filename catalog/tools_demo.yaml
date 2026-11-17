@@ -1,0 +1,89 @@
+# =============================================================================================
+#  CATÁLOGO DEMO · 3 herramientas FICTICIAS encadenadas (limpiar → resumir → reporte)
+#  Úsalo con:  python -m agente --root examples/demo_project --catalog catalog/tools_demo.yaml <comando>
+#  Sirve para ver el ciclo completo (solicitud → verificación → faltante → plantilla → ejecución → informe)
+#  y como modelo para agregar herramientas propias: solo YAML + script.
+# =============================================================================================
+version: 1
+description: Demo ficticia de ventas
+config_dir: Configuraciones
+
+file_templates:
+  ventas_crudas:
+    description: Ventas sin procesar (dato ficticio de la demo).
+    n_rows: 4
+    columns:
+      - {name: id, example: V001, description: Identificador de la venta}
+      - {name: region, example: Norte, description: Región (se usa para agrupar)}
+      - {name: monto, example: 120.5, description: "Monto de la venta (los negativos o no numéricos se descartan)"}
+
+workflows:
+  - id: pipeline_ventas
+    description: Limpiar, resumir y reportar las ventas (los tres pasos).
+    tools: [demo_limpiar, demo_resumir, demo_reporte]
+    keywords: ["pipeline de ventas", "todo el proceso de ventas", "proceso completo de ventas"]
+
+tools:
+  - id: demo_limpiar
+    title: Limpiar ventas
+    description: Descarta las ventas con monto inválido o por debajo del umbral y guarda un CSV limpio.
+    order: 1
+    keywords: ["limpi*", "depur*", "descartar* ventas"]
+    examples: ["limpia el archivo de ventas"]
+    runner: {script: scripts/limpiar_datos.py, args: ["{config}"], timeout_s: 120}
+    config: conf_limpiar.json
+    required_keys: [entrada, salida, columna_valor, umbral_minimo]
+    inputs:
+      - {name: ventas_crudas, key: entrada, template: ventas_crudas, description: CSV de ventas sin procesar}
+    outputs:
+      - {name: ventas_limpias, key: salida}
+    config_template:
+      module: Limpieza
+      fields:
+        - {name: entrada, type: path, default: data/ventas_crudas.csv, description: CSV de entrada (relativo a la raíz)}
+        - {name: salida, type: path, default: data/ventas_limpias.csv, description: CSV limpio de salida}
+        - {name: columna_valor, default: monto, description: Columna numérica a validar}
+        - {name: umbral_minimo, type: number, default: 0, description: Se descartan montos menores a este valor}
+
+  - id: demo_resumir
+    title: Resumir ventas por región
+    description: Calcula cantidad, suma y media del monto por región y escribe resumen.json.
+    order: 2
+    keywords: ["resum*", "agrupar*", "totales por region", "estadistica*"]
+    examples: ["resume las ventas por región"]
+    runner: {script: scripts/resumir_datos.py, args: ["{config}"], timeout_s: 120}
+    config: conf_resumir.json
+    inputs:
+      - {name: ventas_limpias, key: entrada}
+    outputs:
+      - {name: resumen, key: salida}
+    config_template:
+      module: Resumen
+      fields:
+        - {name: entrada, type: path, default: data/ventas_limpias.csv, description: CSV limpio (salida de demo_limpiar)}
+        - {name: salida, type: path, default: out/resumen.json, description: JSON de resumen}
+        - {name: columna_grupo, default: region, description: Columna por la que se agrupa}
+        - {name: columna_valor, default: monto, description: Columna numérica a resumir}
+
+  - id: demo_reporte
+    title: Informe de ventas
+    description: Genera el informe Markdown de ventas a partir de resumen.json.
+    order: 3
+    keywords: ["informe*", "reporte*", "documento de ventas"]
+    examples: ["genera el informe de ventas"]
+    runner: {script: scripts/reporte_demo.py, args: ["{config}", "{param.titulo}"], timeout_s: 120}
+    config: conf_reporte_demo.json
+    required_keys: [resumen, salida]
+    params:
+      - name: titulo
+        type: string
+        required: true
+        description: Título que encabeza el informe.
+        why: Se imprime como encabezado del informe Markdown; no hay un valor por defecto sensato.
+        example: Ventas del trimestre
+    inputs:
+      - {name: resumen, key: resumen}
+    outputs:
+      - {name: informe, key: salida}
+    destructive: true
+    destructive_reason: Sobrescribe el informe anterior (informe.md).

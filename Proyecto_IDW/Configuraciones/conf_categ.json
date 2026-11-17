@@ -1,0 +1,23 @@
+{
+    "__modulo__": "Categorizacion",
+    "__version__": "1.0",
+    "modelo": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_valorizado.csv",
+    "metodo": "IDW",
+    "campos": {
+        "distancia": "d3h_avgdist_anisot",
+        "nholes": "cu_idw_nholes",
+        "pass": "cu_idw_pass",
+        "col_categoria": "categ_nuevo"
+    },
+    "piso": {
+        "activo": false,
+        "columna_anterior": "categ"
+    },
+    "distancias": {
+        "medido": 15.0,
+        "indicado": 25.0,
+        "inferido": 75.0,
+        "potencial": 200.0
+    },
+    "salida": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb_categorizado.csv"
+}

@@ -1,0 +1,24 @@
+{
+    "__modulo__": "Compositacion",
+    "__version__": "2.1",
+    "proyecto": "D:\\Proyecto_SLM\\Prueba_Agente_v3\\02_Resultados\\01_Database\\Database.db",
+    "tabla_assay": "assay",
+    "tabla_composito": "assay_comp",
+    "metodo": "Run Length",
+    "longitud": 2.0,
+    "tolerancia": 1.0,
+    "faltantes_flag": "-99",
+    "faltantes_accion": "Ignorar Tramo",
+    "faltantes_valor": 0.0,
+    "noregistrado_accion": "Ignorar Tramo",
+    "noregistrado_valor": 0.0,
+    "cortar_geologia": true,
+    "codigo_roca": "DOMCU",
+    "campos_numericos": [
+        "CUPCT",
+        "CUPCT_ACOT"
+    ],
+    "campos_categoricos": [
+        "DOMCU"
+    ]
+}

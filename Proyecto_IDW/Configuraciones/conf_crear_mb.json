@@ -1,0 +1,208 @@
+{
+    "__modulo__": "ModeloBloques",
+    "__version__": "1.1",
+    "esquema": {
+        "origen_x": 360500.0,
+        "origen_y": 8807800.0,
+        "origen_z": 4069.0,
+        "extension_x": 424.0,
+        "extension_y": 352.0,
+        "extension_z": 126.0,
+        "x_size": 4.0,
+        "y_size": 4.0,
+        "z_size": 3.0,
+        "bearing": 90.0,
+        "sub_x": 4.0,
+        "sub_y": 4.0,
+        "sub_z": 3.0
+    },
+    "variables": [
+        {
+            "nombre": "cu_idw",
+            "tipo": "Float",
+            "valor_defecto": "-99",
+            "descripcion": "Variable a estimar"
+        },
+        {
+            "nombre": "domcu",
+            "tipo": "Integer",
+            "valor_defecto": "-99",
+            "descripcion": "Dominio"
+        },
+        {
+            "nombre": "topof",
+            "tipo": "Float",
+            "valor_defecto": "100",
+            "descripcion": "Porcentaje de minado (100 = bloque completo)"
+        }
+    ],
+    "solidos": [
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\21_CALERA_INF.obj",
+            "variable": "domcu",
+            "valor": "21",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\31_CALERA_MID(FAV).obj",
+            "variable": "domcu",
+            "valor": "31",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\41_CALERA_MID(VAR).obj",
+            "variable": "domcu",
+            "valor": "41",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\51_CALERA_SUP.obj",
+            "variable": "domcu",
+            "valor": "51",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\61_CONGLOMERADO_SHUCO.obj",
+            "variable": "domcu",
+            "valor": "61",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\71_CONGLOMERADO_TRANSICIONAL.obj",
+            "variable": "domcu",
+            "valor": "71",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\81_DAC_PORF.obj",
+            "variable": "domcu",
+            "valor": "81",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\91_DEP_PIRO.obj",
+            "variable": "domcu",
+            "valor": "91",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\101_MITU.obj",
+            "variable": "domcu",
+            "valor": "101",
+            "prioridad": 1
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\22_CU_PCT_INDICATOR 0.3_CAL_INF_IS_0.45_C1_R180 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "22",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\32_CU_PCT_INDICATOR 0.3_CAL_MID_FAV_IS_0.4_C1_R180 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "32",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\42_CU_PCT_INDICATOR 0.3_CAL_MID_VAR_IS_0.4_C1_R100 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "42",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\62_CU_PCT_INDICATOR 0.3_CONGL_S_IS_0.4_C1_R180 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "62",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\72_CU_PCT_INDICATOR 0.3_CONGL_T_IS_0.4_C1_R180 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "72",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\82_CU_PCT_INDICATOR 0.3_DAC_PORF_IS_0.4_C1_R180 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "82",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\102_CU_PCT_INDICATOR 0.3_MITU_IS_0.45_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "102",
+            "prioridad": 2
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\23_CU_PCT_INDICATOR 1.8_CAL_INF_IS_0.45_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "23",
+            "prioridad": 3
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\33_CU_PCT_INDICATOR 1.8_CAL_MID_FAV_IS_0.4_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "33",
+            "prioridad": 3
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\63_CU_PCT_INDICATOR 1.8_CONGL_S_IS_0.4_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "63",
+            "prioridad": 3
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\73_CU_PCT_INDICATOR 1.8_CONGL_T_IS_0.45_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "73",
+            "prioridad": 3
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\83_CU_PCT_INDICATOR 1.8_DAC_PORF_IS_0.45_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "83",
+            "prioridad": 3
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\103_CU_PCT_INDICATOR 1.8_MITU_IS_0.45_C1_R80 - INSIDE.obj",
+            "variable": "domcu",
+            "valor": "103",
+            "prioridad": 3
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\34_CU_PCT_INDICATOR 3.0 CAL_MID_FAV_IS_0.4_C1_R80.obj",
+            "variable": "domcu",
+            "valor": "34",
+            "prioridad": 4
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\64_CU_PCT_INDICATOR 3.0_CONGL_S_IS_0.4_C1_R80.obj",
+            "variable": "domcu",
+            "valor": "64",
+            "prioridad": 4
+        },
+        {
+            "ruta": "C:\\MiProyecto\\01_Data\\03_Dominio\\74_CU_PCT_INDICATOR 3.0_CONGL_T_IS_0.45_C1_R80.obj",
+            "variable": "domcu",
+            "valor": "74",
+            "prioridad": 4
+        }
+    ],
+    "excepciones": [
+        {
+            "expresion": "domcu eq -99",
+            "descripcion": ""
+        }
+    ],
+    "tolerancia_pared": 0.0,
+    "salida": "C:\\MiProyecto\\02_Resultados\\03_Modelo_Bloques\\mb_smeb.csv",
+    "esquema_csv": {
+        "archivo": "",
+        "col_xc": "XC",
+        "col_yc": "YC",
+        "col_zc": "ZC",
+        "col_dx": "DX",
+        "col_dy": "DY",
+        "col_dz": "DZ"
+    }
+}
